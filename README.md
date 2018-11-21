@@ -13,22 +13,22 @@ Django приложение,
 которое задается в конфигурационном файле nginx
 * NGINX_ACCESS_SEP - разделитель данных в файле логов
 
-
-    # /etc/nginx/nginx.conf
-    log_format machine_readable
-        '$remote_addr |_| '
-        '$remote_user |_| '
-        '$time_local |_| '
-        '$request_time |_| '
-        '$host |_| '
-        '$request |_| '
-        '$status |_| '
-        '$bytes_sent |_| '
-        '$http_referer |_| '
-        '$request_length |_| '
-        '$body_bytes_sent |_| '                
-        '$http_user_agent';
-
+```
+# /etc/nginx/nginx.conf
+log_format machine_readable
+    '$remote_addr |_| '
+    '$remote_user |_| '
+    '$time_local |_| '
+    '$request_time |_| '
+    '$host |_| '
+    '$request |_| '
+    '$status |_| '
+    '$bytes_sent |_| '
+    '$http_referer |_| '
+    '$request_length |_| '
+    '$body_bytes_sent |_| '                
+    '$http_user_agent';
+```
 Консольная команда parse_nginx_access запускает процесс парсинга:
 
 * копируется файл логов в папку NGINX_ACCESS_LOGS_DIR, 
