@@ -104,6 +104,8 @@ class Command(BaseCommand):
         :param file_object: файловый объект
         """
         create_objects = []
+        counters_done = 0
+        counters_error = 0
 
         for line in file_object:
 
@@ -126,6 +128,7 @@ class Command(BaseCommand):
                     http_user_agent
                 ) = line.split(cls.NGINX_ACCESS_SEP)
             except Exception as err:
+                counters_error += 1
                 mail_admins(
                     'DJANGO_NGINX_ACCESS',
                     'parsing error\n{err}\n{line}'.format(
@@ -135,6 +138,8 @@ class Command(BaseCommand):
                     fail_silently=True
                 )
                 continue
+            else:
+                counters_done += 1
 
             create_objects.append(
                 LogItem(
@@ -154,6 +159,15 @@ class Command(BaseCommand):
             )
 
         LogItem.objects.bulk_create(create_objects)
+
+        mail_admins(
+            'DJANGO_NGINX_ACCESS',
+            'parsing done \ncounters_done={counters_done}\ncounters_error={counters_error}'.format(
+                counters_error=counters_error,
+                counters_done=counters_done
+            ),
+            fail_silently=True
+        )
 
     def handle(self, *args, **options):
         """
