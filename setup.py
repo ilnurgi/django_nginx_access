@@ -9,7 +9,7 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='django_nginx_access',
-    version='0.0.1',
+    version='0.0.2',
     author='Ильнур Гайфутдинов',
     author_email='ilnurgi87@gmail.com',
     description='Парсер nginx логов',
