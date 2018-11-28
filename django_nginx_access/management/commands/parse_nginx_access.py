@@ -116,7 +116,7 @@ class Command(BaseCommand):
                     url=url,
                     status=status,
                     bytes_sent=bytes_sent,
-                    http_referer=http_referer,
+                    http_referer=http_referer[:LogItem._meta.get_field('http_referer').max_length],
                     request_length=request_length,
                     body_bytes_sent=body_bytes_sent,
                     http_user_agent=http_user_agent[:LogItem._meta.get_field('http_user_agent').max_length],
