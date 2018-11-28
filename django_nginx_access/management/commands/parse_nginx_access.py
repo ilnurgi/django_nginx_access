@@ -62,16 +62,16 @@ class Command(BaseCommand):
         return request.split(' ', 2)[2]
 
     @classmethod
-    def process_access_log(cls, file_object):
+    def process_access_log(cls, file_content):
         """
         обработка файла
-        :param file_object: файловый объект
+        :param file_content: данные
         """
         create_objects = []
         counters_done = 0
         errors = []
 
-        for line in file_object:
+        for line in file_content.split('\n'):
 
             if not line or cls.NGINX_ACCESS_SEP not in line:
                 continue
@@ -142,7 +142,7 @@ class Command(BaseCommand):
                 access_log_path = os.path.join(
                     self.NGINX_ACCESS_LOGS_DIR, file_name)
                 with gzip.open(access_log_path) as f:
-                    self.process_access_log(f)
+                    self.process_access_log(f.read())
                 access_log_path_new = os.path.join(
                     processed_logs,
                     '{0}_{1}'.format(prefix, file_name))
