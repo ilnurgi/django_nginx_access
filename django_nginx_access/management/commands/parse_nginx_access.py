@@ -1,7 +1,7 @@
 """
 парсер nginx файла
 """
-
+import gzip
 import os
 import shutil
 import subprocess
@@ -28,33 +28,6 @@ class Command(BaseCommand):
     NGINX_ACCESS_SEP = settings.NGINX_ACCESS_SEP
 
     help = 'парсер nginx файла доступа'
-
-    def add_arguments(self, parser):
-        """
-        добавляем ключи команды
-        :param parser:
-        :return:
-        """
-        # parser.add_argument('poll_id', nargs='+', type=int)
-
-    @staticmethod
-    def copy_access_log_file(access_log_path, access_log_path_new):
-        """
-        копируем лог файл и обновляем пид nginx
-        :param access_log_path: путь к исходному файлу логов
-        :type access_log_path: str
-        :param access_log_path_new: путь к новому файлу
-        :type access_log_path_new: str
-        """
-        shutil.move(access_log_path, access_log_path_new)
-
-    @staticmethod
-    def reload_nginx_access_log_file():
-        """
-        перезапускаем nginx для нового файла
-        :return:
-        """
-        subprocess.run(['kill',  '-USR1',  '`cat master.nginx.pid`'])
 
     @staticmethod
     def __get_local_dt(time_local):
@@ -89,15 +62,6 @@ class Command(BaseCommand):
         return request.split(' ', 2)[2]
 
     @classmethod
-    def __get_parsed_data(cls, line):
-        """
-        парсим строку из файла
-        :param line: строка из файла
-        :type line: str
-        :rtype: tuple
-        """
-
-    @classmethod
     def process_access_log(cls, file_object):
         """
         обработка файла
@@ -105,7 +69,7 @@ class Command(BaseCommand):
         """
         create_objects = []
         counters_done = 0
-        counters_error = 0
+        errors = []
 
         for line in file_object:
 
@@ -128,15 +92,7 @@ class Command(BaseCommand):
                     http_user_agent
                 ) = line.split(cls.NGINX_ACCESS_SEP)
             except Exception as err:
-                counters_error += 1
-                mail_admins(
-                    'DJANGO_NGINX_ACCESS',
-                    'parsing error\n{err}\n{line}'.format(
-                        err=err,
-                        line=line
-                    ),
-                    fail_silently=True
-                )
+                errors.append((line, err))
                 continue
             else:
                 counters_done += 1
@@ -162,9 +118,9 @@ class Command(BaseCommand):
 
         mail_admins(
             'DJANGO_NGINX_ACCESS',
-            'parsing done \ncounters_done={counters_done}\ncounters_error={counters_error}'.format(
-                counters_error=counters_error,
-                counters_done=counters_done
+            'parsing done \ncounters_done={counters_done}\nERRORS\n{errors}'.format(
+                counters_done=counters_done,
+                errors='\n'.join('{0}\n{1}'.format(line, error) for line, error in errors)
             ),
             fail_silently=True
         )
@@ -177,11 +133,17 @@ class Command(BaseCommand):
         :return:
         """
         prefix = str(int(time()))
-        access_log_path = os.path.join(self.NGINX_ACCESS_LOGS_DIR, self.NGINX_ACCESS_FILE_NAME)
-        access_log_path_new = os.path.join(
-            self.NGINX_ACCESS_LOGS_DIR,
-            '{0}_{1}'.format(prefix, self.NGINX_ACCESS_FILE_NAME))
+        processed_logs = os.path.join(self.NGINX_ACCESS_LOGS_DIR, 'django_nginx_processed')
+        if not os.path.exists(processed_logs):
+            os.makedirs(processed_logs)
 
-        self.copy_access_log_file(access_log_path, access_log_path_new)
-        self.reload_nginx_access_log_file()
-        self.process_access_log(open(access_log_path_new))
+        for file_name in os.listdir(self.NGINX_ACCESS_LOGS_DIR):
+            if file_name.startswith(self.NGINX_ACCESS_FILE_NAME) and file_name.endswith('.gz'):
+                access_log_path = os.path.join(
+                    self.NGINX_ACCESS_LOGS_DIR, file_name)
+                with gzip.open(access_log_path) as f:
+                    self.process_access_log(f)
+                access_log_path_new = os.path.join(
+                    processed_logs,
+                    '{0}_{1}'.format(prefix, file_name))
+                shutil.move(access_log_path, access_log_path_new)
