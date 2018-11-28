@@ -142,7 +142,7 @@ class Command(BaseCommand):
                 access_log_path = os.path.join(
                     self.NGINX_ACCESS_LOGS_DIR, file_name)
                 with gzip.open(access_log_path) as f:
-                    self.process_access_log(f.read())
+                    self.process_access_log(f.read().decode('utf-8'))
                 access_log_path_new = os.path.join(
                     processed_logs,
                     '{0}_{1}'.format(prefix, file_name))
