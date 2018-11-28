@@ -93,7 +93,7 @@ class Command(BaseCommand):
                     http_user_agent
                 ) = line.split(cls.NGINX_ACCESS_SEP)
             except Exception as err:
-                errors.append((line, err, traceback.format_exc()))
+                errors.append((line, str(err), traceback.format_exc()))
                 continue
             else:
                 counters_done += 1
@@ -103,7 +103,7 @@ class Command(BaseCommand):
                 host = cls.__get_host(host)
                 url = cls.__get_url(request)
             except Exception as err:
-                errors.append((line, err, traceback.format_exc()))
+                errors.append((line, str(err), traceback.format_exc()))
                 continue
 
             create_objects.append(
