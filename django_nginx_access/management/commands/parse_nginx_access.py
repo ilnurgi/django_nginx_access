@@ -129,7 +129,7 @@ class Command(BaseCommand):
             'DJANGO_NGINX_ACCESS',
             'parsing done \ncounters_done={counters_done}\nERRORS\n{errors}'.format(
                 counters_done=counters_done,
-                errors='\n'.join('{0}\n{1}'.format(line, error) for line, error in errors)
+                errors='\n'.join('\n'.join(error) for error in errors)
             ),
             fail_silently=True
         )
