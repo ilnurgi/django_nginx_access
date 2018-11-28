@@ -1,10 +1,11 @@
 """
 парсер nginx файла
 """
+
 import gzip
 import os
 import shutil
-import subprocess
+import traceback
 
 from datetime import datetime
 from time import time
@@ -92,19 +93,27 @@ class Command(BaseCommand):
                     http_user_agent
                 ) = line.split(cls.NGINX_ACCESS_SEP)
             except Exception as err:
-                errors.append((line, err))
+                errors.append((line, err, traceback.format_exc()))
                 continue
             else:
                 counters_done += 1
+
+            try:
+                time_local = cls.__get_local_dt(time_local)
+                host = cls.__get_host(host)
+                url = cls.__get_url(request)
+            except Exception as err:
+                errors.append((line, err, traceback.format_exc()))
+                continue
 
             create_objects.append(
                 LogItem(
                     remote_addr=remote_addr,
                     remote_user=remote_user,
-                    time_local=cls.__get_local_dt(time_local),
+                    time_local=time_local,
                     request_time=request_time,
-                    host=cls.__get_host(host),
-                    url=cls.__get_url(request),
+                    host=host,
+                    url=url,
                     status=status,
                     bytes_sent=bytes_sent,
                     http_referer=http_referer,
