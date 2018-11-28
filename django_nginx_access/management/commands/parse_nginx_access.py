@@ -119,7 +119,7 @@ class Command(BaseCommand):
                     http_referer=http_referer,
                     request_length=request_length,
                     body_bytes_sent=body_bytes_sent,
-                    http_user_agent=http_user_agent,
+                    http_user_agent=http_user_agent[:LogItem._meta.get_field('http_user_agent').max_length],
                 )
             )
 
