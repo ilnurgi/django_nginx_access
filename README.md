@@ -12,6 +12,7 @@ Django приложение,
 * NGINX_ACCESS_FILE_NAME - имя файла логов, 
 которое задается в конфигурационном файле nginx
 * NGINX_ACCESS_SEP - разделитель данных в файле логов
+* NGINX_ACCESS_SERVER_IP - ip адрес сервера
 
 ```
 # /etc/nginx/nginx.conf

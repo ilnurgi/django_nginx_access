@@ -27,6 +27,7 @@ class Command(BaseCommand):
     NGINX_ACCESS_FILE_NAME = settings.NGINX_ACCESS_FILE_NAME
 
     NGINX_ACCESS_SEP = settings.NGINX_ACCESS_SEP
+    NGINX_ACCESS_SERVER_IP = settings.NGINX_ACCESS_SERVER_IP
 
     help = 'парсер nginx файла доступа'
 
@@ -40,8 +41,8 @@ class Command(BaseCommand):
         """
         return make_aware(datetime.strptime(time_local.split(' ')[0], '%d/%b/%Y:%H:%M:%S'))
 
-    @staticmethod
-    def __get_host(host):
+    @classmethod
+    def __get_host(cls, host):
         """
         преобразуем хост к единому виду
         :param host: хост
@@ -50,6 +51,8 @@ class Command(BaseCommand):
         """
         if host.startswith('www'):
             return host
+        elif host == '_':
+            return cls.NGINX_ACCESS_SERVER_IP
         return 'www.{0}'.format(host)
 
     @staticmethod
