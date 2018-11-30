@@ -63,10 +63,13 @@ class Command(BaseCommand):
         return request.split(' ', 2)[2]
 
     @classmethod
-    def process_access_log(cls, file_content):
+    def process_access_log(cls, file_content, file_path):
         """
         обработка файла
         :param file_content: данные
+        :type file_content: str
+        :param file_path: путь к файлу
+        :type file_path: ыек
         """
         create_objects = []
         counters_done = 0
@@ -127,8 +130,9 @@ class Command(BaseCommand):
 
         mail_admins(
             'DJANGO_NGINX_ACCESS',
-            'parsing done \ncounters_done={counters_done}\nERRORS\n{errors}'.format(
+            'parsing done\n{file_path}\ncounters_done={counters_done}\nERRORS\n{errors}'.format(
                 counters_done=counters_done,
+                file_path=file_path,
                 errors='\n'.join('\n'.join(error) for error in errors)
             ),
             fail_silently=True
@@ -150,9 +154,9 @@ class Command(BaseCommand):
             if file_name.startswith(self.NGINX_ACCESS_FILE_NAME) and file_name.endswith('.gz'):
                 access_log_path = os.path.join(
                     self.NGINX_ACCESS_LOGS_DIR, file_name)
-                with gzip.open(access_log_path) as f:
-                    self.process_access_log(f.read().decode('utf-8'))
                 access_log_path_new = os.path.join(
                     processed_logs,
                     '{0}_{1}'.format(prefix, file_name))
+                with gzip.open(access_log_path) as f:
+                    self.process_access_log(f.read().decode('utf-8'), access_log_path_new)
                 shutil.move(access_log_path, access_log_path_new)
