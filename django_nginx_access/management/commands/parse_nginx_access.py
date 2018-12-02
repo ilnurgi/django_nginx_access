@@ -78,7 +78,7 @@ class Command(BaseCommand):
         counters_done = 0
         errors = []
 
-        for line in file_content.split('\n'):
+        for line_number, line in enumerate(file_content.split('\n')):
 
             if not line or cls.NGINX_ACCESS_SEP not in line:
                 continue
@@ -99,7 +99,14 @@ class Command(BaseCommand):
                     http_user_agent
                 ) = line.split(cls.NGINX_ACCESS_SEP)
             except Exception as err:
-                errors.append((line, str(err), traceback.format_exc()))
+                errors.append(
+                    '{line_number}: {line}\n{err}\{traceback}'.format(
+                        line=line,
+                        line_number=line_number,
+                        err=err,
+                        traceback=traceback.format_exc(),
+                    )
+                )
                 continue
             else:
                 counters_done += 1
@@ -109,7 +116,14 @@ class Command(BaseCommand):
                 host = cls.__get_host(host)
                 url = cls.__get_url(request)
             except Exception as err:
-                errors.append((line, str(err), traceback.format_exc()))
+                errors.append(
+                    '{line_number}: {line}\n{err}\{traceback}'.format(
+                        line=line,
+                        line_number=line_number,
+                        err=err,
+                        traceback=traceback.format_exc(),
+                    )
+                )
                 continue
 
             create_objects.append(
@@ -131,15 +145,7 @@ class Command(BaseCommand):
 
         LogItem.objects.bulk_create(create_objects)
 
-        mail_admins(
-            'DJANGO_NGINX_ACCESS',
-            'parsing done\n{file_path}\ncounters_done={counters_done}\nERRORS\n{errors}'.format(
-                counters_done=counters_done,
-                file_path=file_path,
-                errors='\n'.join('\n'.join(error) for error in errors)
-            ),
-            fail_silently=True
-        )
+        return counters_done, errors
 
     def handle(self, *args, **options):
         """
@@ -153,6 +159,8 @@ class Command(BaseCommand):
         if not os.path.exists(processed_logs):
             os.makedirs(processed_logs)
 
+        results = {}
+
         for file_name in os.listdir(self.NGINX_ACCESS_LOGS_DIR):
             if file_name.startswith(self.NGINX_ACCESS_FILE_NAME) and file_name.endswith('.gz'):
                 access_log_path = os.path.join(
@@ -161,5 +169,23 @@ class Command(BaseCommand):
                     processed_logs,
                     '{0}_{1}'.format(prefix, file_name))
                 with gzip.open(access_log_path) as f:
-                    self.process_access_log(f.read().decode('utf-8'), access_log_path_new)
+                    counters_done, errors = self.process_access_log(
+                        f.read().decode('utf-8'), access_log_path_new)
                 shutil.move(access_log_path, access_log_path_new)
+                results[file_name] = {
+                    'counters_done': counters_done,
+                    'errors': errors
+                }
+
+        mail_admins(
+            'DJANGO_NGINX_ACCESS',
+            'parsing done\n{errors}'.format(
+                errors='\n\n'.join(
+                    '{file_name}\ncounters_done={counters_done}\n{errors}'.format(
+                        file_name=file_name,
+                        counters_done=result['counters_done'],
+                        errors='\n'.join(error for error in result['errors'])
+                    ) for file_name, result in results.items()
+                )
+            )
+        )
