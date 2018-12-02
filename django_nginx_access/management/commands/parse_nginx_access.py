@@ -180,7 +180,7 @@ class Command(BaseCommand):
         mail_admins(
             'DJANGO_NGINX_ACCESS',
             'parsing done\n{errors}'.format(
-                errors='\n\n'.join(
+                errors='\n'.join(
                     '{file_name}\ncounters_done={counters_done}\n{errors}'.format(
                         file_name=file_name,
                         counters_done=result['counters_done'],
