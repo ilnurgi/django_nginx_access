@@ -63,7 +63,7 @@ class Command(BaseCommand):
         :type request: str
         :rtype: str
         """
-        return request.split(' ', 2)[2]
+        return request.split(' ', 2)[1]
 
     @classmethod
     def process_access_log(cls, file_content, file_path):
