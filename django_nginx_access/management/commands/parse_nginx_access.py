@@ -133,7 +133,7 @@ class Command(BaseCommand):
                     time_local=time_local,
                     request_time=request_time,
                     host=host,
-                    url=url,
+                    url=url[:LogItem._meta.get_field('url').max_length],
                     status=status,
                     bytes_sent=bytes_sent,
                     http_referer=http_referer[:LogItem._meta.get_field('http_referer').max_length],
