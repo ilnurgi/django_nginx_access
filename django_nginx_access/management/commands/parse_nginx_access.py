@@ -130,7 +130,7 @@ class Command(BaseCommand):
                 )
                 continue
 
-            if any(url.endswith(excl) for excl in cls.NGINX_ACCESS_EXCLUDE_STATIC_EXT):
+            if any(url.lower().endswith(excl) for excl in cls.NGINX_ACCESS_EXCLUDE_STATIC_EXT):
                 continue
 
             create_objects.append(
