@@ -29,6 +29,12 @@ class Command(BaseCommand):
     NGINX_ACCESS_SEP = settings.NGINX_ACCESS_SEP
     NGINX_ACCESS_SERVER_IP = settings.NGINX_ACCESS_SERVER_IP
 
+    NGINX_ACCESS_EXCLUDE_STATIC_EXT = settings.NGINX_ACCESS_EXCLUDE_STATIC_EXT
+
+    MAX_LENGTH_URL = LogItem._meta.get_field('url').max_length
+    MAX_LENGTH_HTTP_REF = LogItem._meta.get_field('http_referer').max_length
+    MAX_LENGTH_UA = LogItem._meta.get_field('http_user_agent').max_length
+
     help = 'парсер nginx файла доступа'
 
     @staticmethod
@@ -66,13 +72,11 @@ class Command(BaseCommand):
         return request.split(' ', 2)[1]
 
     @classmethod
-    def process_access_log(cls, file_content, file_path):
+    def process_access_log(cls, file_content):
         """
         обработка файла
         :param file_content: данные
         :type file_content: str
-        :param file_path: путь к файлу
-        :type file_path: ыек
         """
         create_objects = []
         counters_done = 0
@@ -126,6 +130,9 @@ class Command(BaseCommand):
                 )
                 continue
 
+            if any(url.endswith(excl) for excl in cls.NGINX_ACCESS_EXCLUDE_STATIC_EXT):
+                continue
+
             create_objects.append(
                 LogItem(
                     remote_addr=remote_addr,
@@ -133,13 +140,13 @@ class Command(BaseCommand):
                     time_local=time_local,
                     request_time=request_time,
                     host=host,
-                    url=url[:LogItem._meta.get_field('url').max_length],
+                    url=url[:cls.MAX_LENGTH_URL],
                     status=status,
                     bytes_sent=bytes_sent,
-                    http_referer=http_referer[:LogItem._meta.get_field('http_referer').max_length],
+                    http_referer=http_referer[:cls.MAX_LENGTH_HTTP_REF],
                     request_length=request_length,
                     body_bytes_sent=body_bytes_sent,
-                    http_user_agent=http_user_agent[:LogItem._meta.get_field('http_user_agent').max_length],
+                    http_user_agent=http_user_agent[:cls.MAX_LENGTH_UA],
                 )
             )
 
@@ -169,8 +176,7 @@ class Command(BaseCommand):
                     processed_logs,
                     '{0}_{1}'.format(prefix, file_name))
                 with gzip.open(access_log_path) as f:
-                    counters_done, errors = self.process_access_log(
-                        f.read().decode('utf-8'), access_log_path_new)
+                    counters_done, errors = self.process_access_log(f.read().decode('utf-8'))
                 shutil.move(access_log_path, access_log_path_new)
                 results[file_name] = {
                     'counters_done': counters_done,
@@ -179,8 +185,8 @@ class Command(BaseCommand):
 
         mail_admins(
             'DJANGO_NGINX_ACCESS',
-            'parsing done\n{errors}'.format(
-                errors='\n'.join(
+            'parsing done\n{result}'.format(
+                result='\n'.join(
                     '{file_name}\ncounters_done={counters_done}\n{errors}'.format(
                         file_name=file_name,
                         counters_done=result['counters_done'],
