@@ -1,6 +1,7 @@
 """
 тестируем парсер логов
 """
+import gzip
 
 from django.test import TestCase
 
@@ -31,3 +32,10 @@ class NginxAccessParseTestCase(TestCase):
         self.assertEqual(
             len(file_content.splitlines()) - 2,
             LogItem.objects.count())
+
+    def test_nginx_parse_log2(self):
+        self.assertEqual(0, LogItem.objects.count())
+
+        with gzip.open('access_ilnurgi.log.2.gz') as f:
+            Command.process_access_log(f.read().decode('utf-8'))
+        self.assertTrue(LogItem.objects.count() > 0)

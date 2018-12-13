@@ -59,7 +59,9 @@ class Command(BaseCommand):
             return host
         elif host == '_':
             return cls.NGINX_ACCESS_SERVER_IP
-        return 'www.{0}'.format(host)
+        elif host != cls.NGINX_ACCESS_SERVER_IP:
+            return 'www.{0}'.format(host)
+        return host
 
     @staticmethod
     def __get_url(request):
@@ -135,7 +137,7 @@ class Command(BaseCommand):
 
             create_objects.append(
                 LogItem(
-                    remote_addr=remote_addr,
+                    remote_addr=remote_addr.replace(chr(0x00), ''),
                     remote_user=remote_user,
                     time_local=time_local,
                     request_time=request_time,
