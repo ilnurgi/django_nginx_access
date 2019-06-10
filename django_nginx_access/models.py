@@ -22,3 +22,16 @@ class LogItem(models.Model):
     request_length = models.IntegerField(null=False)
     body_bytes_sent = models.IntegerField(null=False)
     http_user_agent = models.CharField(max_length=100, null=False)
+
+    def __str__(self):
+        """
+        строкове представление объекта
+        :return:
+        """
+        return '{0}, {1}, {2}'.format(self.url, self.http_referer, self.http_user_agent)
+
+    class Meta:
+        """
+        мета описание модели
+        """
+        verbose_name_plural = 'Записи логов'

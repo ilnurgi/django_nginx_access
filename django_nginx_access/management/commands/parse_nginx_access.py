@@ -31,6 +31,7 @@ class Command(BaseCommand):
 
     NGINX_ACCESS_EXCLUDE_STATIC_EXT = settings.NGINX_ACCESS_EXCLUDE_STATIC_EXT
 
+    MAX_LENGTH_HOST = LogItem._meta.get_field('host').max_length
     MAX_LENGTH_URL = LogItem._meta.get_field('url').max_length
     MAX_LENGTH_HTTP_REF = LogItem._meta.get_field('http_referer').max_length
     MAX_LENGTH_UA = LogItem._meta.get_field('http_user_agent').max_length
@@ -141,7 +142,7 @@ class Command(BaseCommand):
                     remote_user=remote_user,
                     time_local=time_local,
                     request_time=request_time,
-                    host=host,
+                    host=host[:cls.MAX_LENGTH_HOST],
                     url=url[:cls.MAX_LENGTH_URL],
                     status=status,
                     bytes_sent=bytes_sent,
