@@ -136,6 +136,8 @@ class Command(BaseCommand):
             if any(url.lower().endswith(excl) for excl in cls.NGINX_ACCESS_EXCLUDE_STATIC_EXT):
                 continue
 
+            if len(create_objects) > 100:
+                LogItem.objects.bulk_create(create_objects)
             create_objects.append(
                 LogItem(
                     remote_addr=remote_addr.replace(chr(0x00), ''),
