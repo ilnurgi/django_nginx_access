@@ -228,3 +228,5 @@ class Command(BaseCommand):
                 )
             )
         )
+
+        os.system('kill -USR1 `cat /var/run/nginx.pid`')
