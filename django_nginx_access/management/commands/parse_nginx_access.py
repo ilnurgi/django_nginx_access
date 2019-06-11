@@ -75,7 +75,7 @@ class Command(BaseCommand):
         return request.split(' ', 2)[1]
 
     @classmethod
-    def process_access_log(cls, file_content):
+    def process_access_log(cls, file_name, file_content):
         """
         обработка файла
         :param file_content: данные
@@ -152,8 +152,14 @@ class Command(BaseCommand):
                     http_user_agent=http_user_agent[:cls.MAX_LENGTH_UA],
                 )
             )
-
-        LogItem.objects.bulk_create(create_objects)
+        try:
+            LogItem.objects.bulk_create(create_objects)
+        except Exception as err:
+            mail_admins(
+                'DJANGO_NGINX_ACCESS',
+                'ERROR:\n{0}\n{1}'.format(file_name, err)
+            )
+            raise
 
         return counters_done, errors
 
@@ -180,20 +186,19 @@ class Command(BaseCommand):
                     '{0}_{1}'.format(prefix, file_name))
                 if file_name.endswith('.gz'):
                     with gzip.open(access_log_path) as f:
-                        counters_done, errors = self.process_access_log(f.read().decode('utf-8'))
+                        counters_done, errors = self.process_access_log(file_name, f.read().decode('utf-8'))
                     shutil.move(access_log_path, access_log_path_new)
                     results[file_name] = {
                         'counters_done': counters_done,
                         'errors': errors
                     }
                 else:
-                    counters_done, errors = self.process_access_log(open(access_log_path).read())
+                    counters_done, errors = self.process_access_log(file_name, open(access_log_path).read())
                     shutil.move(access_log_path, access_log_path_new)
                     results[file_name] = {
                         'counters_done': counters_done,
                         'errors': errors
                     }
-
 
         mail_admins(
             'DJANGO_NGINX_ACCESS',
