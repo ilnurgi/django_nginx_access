@@ -172,19 +172,28 @@ class Command(BaseCommand):
         results = {}
 
         for file_name in os.listdir(self.NGINX_ACCESS_LOGS_DIR):
-            if file_name.startswith(self.NGINX_ACCESS_FILE_NAME) and file_name.endswith('.gz'):
+            if file_name.startswith(self.NGINX_ACCESS_FILE_NAME):
                 access_log_path = os.path.join(
                     self.NGINX_ACCESS_LOGS_DIR, file_name)
                 access_log_path_new = os.path.join(
                     processed_logs,
                     '{0}_{1}'.format(prefix, file_name))
-                with gzip.open(access_log_path) as f:
-                    counters_done, errors = self.process_access_log(f.read().decode('utf-8'))
-                shutil.move(access_log_path, access_log_path_new)
-                results[file_name] = {
-                    'counters_done': counters_done,
-                    'errors': errors
-                }
+                if file_name.endswith('.gz'):
+                    with gzip.open(access_log_path) as f:
+                        counters_done, errors = self.process_access_log(f.read().decode('utf-8'))
+                    shutil.move(access_log_path, access_log_path_new)
+                    results[file_name] = {
+                        'counters_done': counters_done,
+                        'errors': errors
+                    }
+                else:
+                    counters_done, errors = self.process_access_log(open(access_log_path).read())
+                    shutil.move(access_log_path, access_log_path_new)
+                    results[file_name] = {
+                        'counters_done': counters_done,
+                        'errors': errors
+                    }
+
 
         mail_admins(
             'DJANGO_NGINX_ACCESS',

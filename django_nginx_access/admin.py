@@ -4,7 +4,7 @@
 
 from django.contrib import admin
 
-from django_nginx_access.models import LogItem
+from django_nginx_access.models import LogItem, UrlsDictionary, UrlsAgg, UserAgentsAgg, UserAgentsDictionary
 
 
 class LogAdmin(admin.ModelAdmin):
@@ -15,4 +15,7 @@ class LogAdmin(admin.ModelAdmin):
 
 
 admin.site.register(LogItem, LogAdmin)
-
+admin.site.register(UrlsAgg)
+admin.site.register(UserAgentsAgg)
+admin.site.register(UserAgentsDictionary)
+admin.site.register(UrlsDictionary)
