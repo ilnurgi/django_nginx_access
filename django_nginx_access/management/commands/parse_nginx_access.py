@@ -13,9 +13,11 @@ from time import time
 from django.conf import settings
 from django.core.mail import mail_admins
 from django.core.management.base import BaseCommand
+from django.db import transaction
 from django.utils.timezone import make_aware
 
 from django_nginx_access.models import LogItem
+
 
 
 class Command(BaseCommand):
@@ -75,6 +77,7 @@ class Command(BaseCommand):
         return request.split(' ', 2)[1]
 
     @classmethod
+    @transaction.atomic
     def process_access_log(cls, file_name, file_content):
         """
         обработка файла
@@ -152,6 +155,19 @@ class Command(BaseCommand):
                     http_user_agent=http_user_agent[:cls.MAX_LENGTH_UA],
                 )
             )
+
+            if len(create_objects) > 100:
+                try:
+                    LogItem.objects.bulk_create(create_objects)
+                except Exception as err:
+                    mail_admins(
+                        'DJANGO_NGINX_ACCESS',
+                        'ERROR:\n{0}\n{1}'.format(file_name, err)
+                    )
+                    raise
+                else:
+                    create_objects.clear()
+
         try:
             LogItem.objects.bulk_create(create_objects)
         except Exception as err:
