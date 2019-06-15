@@ -337,8 +337,6 @@ class Command(BaseCommand):
         if not min_datetime:
             return
 
-        print(min_datetime)
-
         min_date = min_datetime[0].date()
         min_month = min_date.replace(day=1)
 
@@ -352,7 +350,6 @@ class Command(BaseCommand):
         aggregated_dates = []
 
         while step_month < current_month:
-            print(step_month)
             aggregated_dates.append(step_month)
 
             sql_params = {
