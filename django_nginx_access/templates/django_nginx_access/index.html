@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>Статистика посещаемости</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
+
+    <script>
+        window.onload = function(){
+            var
+                page_start_link = document.getElementById("page-start-link"),
+                page_next_link = document.getElementById("page-next-link"),
+                current_location = window.location.toString(),
+                page_template, charts_map = {}, ctx, datasets;
+
+            page_template = (current_location.search("&") === -1) ? "?page=" : "&page=";
+
+            if (current_location.search("page") === -1){
+                page_start_link.href = current_location + page_template + "0";
+                page_next_link.href = current_location + page_template + "{{ next_page }}";
+            } else {
+                page_start_link.href = current_location.replace(/page=\d+/, "page=0");
+                page_next_link.href = current_location.replace(/page=\d+/, "page={{ next_page }}");
+            }
+
+            for (chart_data of {{ chart_data | safe}}){
+                ctx = document.getElementById("chart-"+chart_data.rn).getContext("2d");
+                datasets = [];
+
+                for (dataset of chart_data.datasets){
+                    datasets.push(
+                        {
+                            borderColor: dataset.color,
+                            showLine: true,
+                            pointStyle: 'line',
+                            fill: false,
+                            data: dataset.data,
+                            label: dataset.label,
+                        }
+                    )
+                }
+
+                charts_map[chart_data.rn] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: chart_data.labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: false,
+                        maintainAspectRatio: false,
+                        legend: {
+                            labels: {
+                                usePointStyle: true,
+                            }
+                        }
+                    }
+                })
+            }
+
+        };
+    </script>
+    <style>
+        .charts {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .charts-item {
+            margin: 10px;
+            flex-basis: 0;
+            flex-grow: 1;
+        }
+        canvas {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<form method="GET">
+    <label for="mode-url">Урлы</label>
+    <input
+        id="mode-url"
+        type="radio"
+        name="mode"
+        value="url"
+        {% if mode == 'url'%}checked{% endif %}
+    >
+    <label for="mode-ua">Браузеры</label>
+    <input
+        id="mode-ua"
+        type="radio"
+        name="mode"
+        value="ua"
+        {% if mode == 'ua'%}checked{% endif %}
+    >
+    <label for="mode-ref">Откуда</label>
+    <input
+        id="mode-ref"
+        type="radio"
+        name="mode"
+        value="ref"
+        {% if mode == 'ref'%}checked{% endif %}
+    >
+    <br><br>
+    <label for="period-month">Текущий месяц</label>
+    <input
+        id="period-month"
+        type="radio"
+        name="period"
+        value="month"
+        {% if period == 'month'%}checked{% endif %}
+    >
+    <label for="period-all">Все</label>
+    <input
+        id="period-all"
+        type="radio"
+        name="period"
+        value="all"
+        {% if period == 'all'%}checked{% endif %}
+    >
+    <br><br>
+    <button type="submit">Сформировать</button>
+</form>
+<div class="charts">
+    {% for obj in chart_data %}
+        <div class="charts-item">
+            {{ obj.label }}
+            <canvas id="chart-{{ obj.rn }}" ></canvas>
+        </div>
+    {% endfor %}
+</div>
+<br>
+<a id="page-start-link" href="?page=0">Начало</a>
+<a id="page-next-link" href="?page={{ next_page }}">Следующий</a>
+</body>
+</html>

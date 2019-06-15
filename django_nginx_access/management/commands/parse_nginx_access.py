@@ -7,17 +7,21 @@ import os
 import shutil
 import traceback
 
-from datetime import datetime
+from datetime import datetime, date
 from time import time
 
 from django.conf import settings
 from django.core.mail import mail_admins
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import transaction, connection
 from django.utils.timezone import make_aware
 
-from django_nginx_access.models import LogItem
+from dateutil.relativedelta import relativedelta
 
+from django_nginx_access.models import (
+    LogItem, UrlsDictionary, UrlsAgg, UserAgentsAgg, UserAgentsDictionary,
+    RefererDictionary, RefererAgg
+)
 
 
 class Command(BaseCommand):
@@ -32,6 +36,7 @@ class Command(BaseCommand):
     NGINX_ACCESS_SERVER_IP = settings.NGINX_ACCESS_SERVER_IP
 
     NGINX_ACCESS_EXCLUDE_STATIC_EXT = settings.NGINX_ACCESS_EXCLUDE_STATIC_EXT
+    NGINX_ACCESS_EXCLUDE_REFS = settings.NGINX_ACCESS_EXCLUDE_REFS
 
     MAX_LENGTH_HOST = LogItem._meta.get_field('host').max_length
     MAX_LENGTH_URL = LogItem._meta.get_field('url').max_length
@@ -81,6 +86,8 @@ class Command(BaseCommand):
     def process_access_log(cls, file_name, file_content):
         """
         обработка файла
+        :param file_name: имя файла
+        :type file_name: str
         :param file_content: данные
         :type file_content: str
         """
@@ -110,7 +117,7 @@ class Command(BaseCommand):
                 ) = line.split(cls.NGINX_ACCESS_SEP)
             except Exception as err:
                 errors.append(
-                    '{line_number}: {line}\n{err}\{traceback}'.format(
+                    '{line_number}: {line}\n{err}\n{traceback}'.format(
                         line=line,
                         line_number=line_number,
                         err=err,
@@ -127,7 +134,7 @@ class Command(BaseCommand):
                 url = cls.__get_url(request)
             except Exception as err:
                 errors.append(
-                    '{line_number}: {line}\n{err}\{traceback}'.format(
+                    '{line_number}: {line}\n{err}\n{traceback}'.format(
                         line=line,
                         line_number=line_number,
                         err=err,
@@ -136,7 +143,12 @@ class Command(BaseCommand):
                 )
                 continue
 
+            # исключаем урлы
             if any(url.lower().endswith(excl) for excl in cls.NGINX_ACCESS_EXCLUDE_STATIC_EXT):
+                continue
+
+            # исключаем ботов по рефереру
+            if any(excl.lower() in http_referer.lower() for excl in cls.NGINX_ACCESS_EXCLUDE_REFS):
                 continue
 
             create_objects.append(
@@ -179,13 +191,11 @@ class Command(BaseCommand):
 
         return counters_done, errors
 
-    def handle(self, *args, **options):
+    def parse_nginx_log(self):
         """
-        обработчик команды
-        :param args:
-        :param options:
-        :return:
+        парсер логов
         """
+
         prefix = str(int(time()))
         processed_logs = os.path.join(self.NGINX_ACCESS_LOGS_DIR, 'django_nginx_processed')
         if not os.path.exists(processed_logs):
@@ -230,3 +240,191 @@ class Command(BaseCommand):
         )
 
         os.system('kill -USR1 `cat /var/run/nginx.pid`')
+
+    def handle(self, *args, **options):
+        """
+        обработчик команды
+        :param args:
+        :param options:
+        :return:
+        """
+
+        self.parse_nginx_log()
+        self.aggregates()
+
+    @transaction.atomic
+    def create_aggregate_data(
+            self,
+            agg_month,
+            agg_urls_data,
+            urls_cache,
+            agg_ua_data,
+            ua_cache,
+            agg_ref_data,
+            ref_cache,
+    ):
+        """
+        :param agg_month: месяц агрегации
+        :param agg_urls_data: данные агрегации урлов
+        :param urls_cache: кеш урлов
+        :param agg_ua_data: данные агрегации юзер агентов
+        :param ua_cache: кеш юзер-агентов
+        :param agg_ref_data: данные агрегации откуда пришли
+        :param ref_cache: кеш откуда пришли
+        """
+
+        create_data = []
+
+        for url, url_count in agg_urls_data:
+            urls_cache.setdefault(url, UrlsDictionary.objects.get_or_create(url=url)[0])
+
+            create_data.append(
+                UrlsAgg(
+                    agg_month=agg_month,
+                    url=urls_cache[url],
+                    amount=url_count,
+                )
+            )
+            if len(create_data) > 100:
+                UrlsAgg.objects.bulk_create(create_data)
+                create_data.clear()
+
+        UrlsAgg.objects.bulk_create(create_data)
+
+        create_data.clear()
+
+        for ua, ua_count in agg_ua_data:
+            ua_cache.setdefault(ua, UserAgentsDictionary.objects.get_or_create(user_agent=ua)[0])
+
+            create_data.append(
+                UserAgentsAgg(
+                    agg_month=agg_month,
+                    user_agent=ua_cache[ua],
+                    amount=ua_count,
+                )
+            )
+            if len(create_data) > 100:
+                UserAgentsAgg.objects.bulk_create(create_data)
+                create_data.clear()
+
+        UserAgentsAgg.objects.bulk_create(create_data)
+
+        create_data.clear()
+
+        for ref, ref_count in agg_ref_data:
+            ref_cache.setdefault(ref, RefererDictionary.objects.get_or_create(referer=ref)[0])
+
+            create_data.append(
+                RefererAgg(
+                    agg_month=agg_month,
+                    referer=ref_cache[ref],
+                    amount=ref_count,
+                )
+            )
+            if len(create_data) > 100:
+                RefererAgg.objects.bulk_create(create_data)
+                create_data.clear()
+
+        RefererAgg.objects.bulk_create(create_data)
+
+    def aggregates(self):
+        """
+        агрегация данных
+        :return:
+        """
+
+        min_datetime = LogItem.objects.order_by('time_local').values_list('time_local').first()
+        if not min_datetime:
+            return
+
+        print(min_datetime)
+
+        min_date = min_datetime[0].date()
+        min_month = min_date.replace(day=1)
+
+        current_month = date.today().replace(day=1)
+
+        urls_cache = {}
+        ua_cache = {}
+        ref_cache = {}
+
+        step_month = min_month
+        aggregated_dates = []
+
+        while step_month < current_month:
+            print(step_month)
+            aggregated_dates.append(step_month)
+
+            sql_params = {
+                'date_start': step_month,
+                'date_end': step_month + relativedelta(months=1)
+            }
+
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    '''
+                        select
+                          "url"
+                          , count("url") count_url
+                        from 
+                          "django_nginx_access_logitem"
+                        where
+                          "time_local" between %(date_start)s and %(date_end)s
+                        group by
+                          "url"                         
+                    ''',
+                    sql_params
+                )
+                urls_data = cursor.fetchall()
+
+                cursor.execute(
+                    '''
+                        select
+                          http_user_agent
+                          , count(http_user_agent) count_user_agent
+                        from 
+                          "django_nginx_access_logitem"
+                        where
+                          time_local between %(date_start)s and %(date_end)s
+                        group by
+                          http_user_agent
+                    ''',
+                    sql_params
+                )
+                ua_data = cursor.fetchall()
+
+                cursor.execute(
+                    '''
+                        select
+                          http_referer
+                          , count(http_referer) count_http_referer
+                        from 
+                          "django_nginx_access_logitem"
+                        where
+                          time_local between %(date_start)s and %(date_end)s
+                        group by
+                          http_referer
+                    ''',
+                    sql_params
+                )
+                ref_data = cursor.fetchall()
+
+                self.create_aggregate_data(step_month, urls_data, urls_cache, ua_data, ua_cache, ref_data, ref_cache)
+
+                cursor.execute(
+                    '''
+                        delete
+                        from
+                          "django_nginx_access_logitem"
+                        where
+                          time_local between %(date_start)s and %(date_end)s
+                    ''',
+                   sql_params
+                )
+
+            step_month += relativedelta(months=1)
+
+        mail_admins(
+            'DJANGO_NGINX_ACCESS',
+            'aggregate done\n{0}'.format('.'.join(str(_date) for _date in aggregated_dates))
+        )

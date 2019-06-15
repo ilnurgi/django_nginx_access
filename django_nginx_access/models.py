@@ -35,6 +35,9 @@ class LogItem(models.Model):
         мета описание модели
         """
         verbose_name_plural = 'Записи логов'
+        indexes = [
+            models.Index(fields=['-time_local'])
+        ]
 
 
 class UrlsDictionary(models.Model):
@@ -42,7 +45,7 @@ class UrlsDictionary(models.Model):
     справочник урлов
     """
 
-    url = models.URLField()
+    url = models.URLField(unique=True)
 
     def __str__(self):
         """
@@ -72,13 +75,16 @@ class UrlsAgg(models.Model):
         строкове представление объекта
         :return:
         """
-        return '{0}.agg_month, {0}.amount, {0}.url'.format(self)
+        return '{0}, {1}, {2}'.format(self.agg_month, self.amount, self.url)
 
     class Meta:
         """
         мета описание модели
         """
         verbose_name_plural = 'Агрегация урлов'
+        constraints = [
+            models.UniqueConstraint(fields=['agg_month', 'url'], name='agg_month_url_uniq')
+        ]
 
 
 class UserAgentsDictionary(models.Model):
@@ -86,7 +92,7 @@ class UserAgentsDictionary(models.Model):
     справочник UA
     """
 
-    user_agent = models.CharField(max_length=100)
+    user_agent = models.CharField(max_length=100, unique=True)
 
     def __str__(self):
         """
@@ -99,7 +105,7 @@ class UserAgentsDictionary(models.Model):
         """
         мета описание модели
         """
-        verbose_name_plural = 'Юзер-агенты'
+        verbose_name_plural = 'Справочник юзер-агенты'
 
 
 class UserAgentsAgg(models.Model):
@@ -115,10 +121,53 @@ class UserAgentsAgg(models.Model):
         строкове представление объекта
         :return:
         """
-        return '{0}.agg_month, {0}.amount, {0}.user_agent'.format(self)
+        return '{0}, {1}, {2}'.format(self.agg_month, self.user_agent, self.amount)
 
     class Meta:
         """
         мета описание модели
         """
         verbose_name_plural = 'Агрегация юзер-агентов'
+
+
+class RefererDictionary(models.Model):
+    """
+    справочник UA
+    """
+
+    referer = models.URLField(unique=True)
+
+    def __str__(self):
+        """
+        строкове представление объекта
+        :return:
+        """
+        return self.referer
+
+    class Meta:
+        """
+        мета описание модели
+        """
+        verbose_name_plural = 'Справочник откуда пришли'
+
+
+class RefererAgg(models.Model):
+    """
+    агрегация по откуда пришли
+    """
+    agg_month = models.DateField()
+    referer = models.ForeignKey(RefererDictionary, on_delete=models.CASCADE)
+    amount = models.IntegerField()
+
+    def __str__(self):
+        """
+        строкове представление объекта
+        :return:
+        """
+        return '{0}, {1}, {2}'.format(self.agg_month, self.referer, self.amount)
+
+    class Meta:
+        """
+        мета описание модели
+        """
+        verbose_name_plural = 'Агрегация откуда пришли'
