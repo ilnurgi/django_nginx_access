@@ -412,6 +412,7 @@ offset %(offset)s
             'chart_data': chart_data,
             'current_page': current_page,
             'next_page': current_page + 1,
+            'prev_page': 0 if not current_page else current_page - 1,
         })
 
         return context

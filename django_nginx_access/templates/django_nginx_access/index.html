@@ -11,6 +11,7 @@
             var
                 page_start_link = document.getElementById("page-start-link"),
                 page_next_link = document.getElementById("page-next-link"),
+                page_prev_link = document.getElementById("page-prev-link"),
                 current_location = window.location.toString(),
                 page_template, charts_map = {}, ctx, datasets;
 
@@ -19,9 +20,17 @@
             if (current_location.search("page") === -1){
                 page_start_link.href = current_location + page_template + "0";
                 page_next_link.href = current_location + page_template + "{{ next_page }}";
+
+                if (page_prev_link){
+                    page_prev_link.href = current_location + page_template + "{{ prev_page }}";
+                }
             } else {
                 page_start_link.href = current_location.replace(/page=\d+/, "page=0");
                 page_next_link.href = current_location.replace(/page=\d+/, "page={{ next_page }}");
+
+                if (page_prev_link){
+                    page_prev_link.href = current_location.replace(/page=\d+/, "page={{ prev_page }}");
+                }
             }
 
             for (chart_data of {{ chart_data | safe}}){
@@ -132,6 +141,9 @@
 </div>
 <br>
 <a id="page-start-link" href="?page=0">Начало</a>
+{% if prev_page %}
+    <a id="page-prev-link" href="?page={{ prev_page }}">Предыдущий</a>
+{% endif %}
 <a id="page-next-link" href="?page={{ next_page }}">Следующий</a>
 </body>
 </html>

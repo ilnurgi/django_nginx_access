@@ -45,41 +45,69 @@ class Command(BaseCommand):
 
     help = 'парсер nginx файла доступа'
 
-    @staticmethod
-    def __get_local_dt(time_local):
+    def handle(self, *args, **options):
         """
-        возвращает питонячий datetime из строки даты тпштч
-        :param time_local: дата nginx
-        :type time_local: str
-        :rtype: datetime
+        обработчик команды
+        :param args:
+        :param options:
+        :return:
         """
-        return make_aware(datetime.strptime(time_local.split(' ')[0], '%d/%b/%Y:%H:%M:%S'))
 
-    @classmethod
-    def __get_host(cls, host):
-        """
-        преобразуем хост к единому виду
-        :param host: хост
-        :type host: str
-        :rtype: str
-        """
-        if host.startswith('www'):
-            return host
-        elif host == '_':
-            return cls.NGINX_ACCESS_SERVER_IP
-        elif host != cls.NGINX_ACCESS_SERVER_IP:
-            return 'www.{0}'.format(host)
-        return host
+        self.parse_nginx_log()
+        self.analyze_time()
+        self.aggregates()
 
-    @staticmethod
-    def __get_url(request):
+    # region parse_nginx_log
+
+    def parse_nginx_log(self):
         """
-        вытаскиваем урл из запроса
-        :param request: запрос
-        :type request: str
-        :rtype: str
+        парсер логов
         """
-        return request.split(' ', 2)[1]
+
+        prefix = str(int(time()))
+        processed_logs = os.path.join(self.NGINX_ACCESS_LOGS_DIR, 'django_nginx_processed')
+        if not os.path.exists(processed_logs):
+            os.makedirs(processed_logs)
+
+        results = {}
+
+        for file_name in os.listdir(self.NGINX_ACCESS_LOGS_DIR):
+            if file_name.startswith(self.NGINX_ACCESS_FILE_NAME):
+                access_log_path = os.path.join(
+                    self.NGINX_ACCESS_LOGS_DIR, file_name)
+                access_log_path_new = os.path.join(
+                    processed_logs,
+                    '{0}_{1}'.format(prefix, file_name))
+                if file_name.endswith('.gz'):
+                    with gzip.open(access_log_path) as f:
+                        counters_done, errors = self.process_access_log(file_name, f.read().decode('utf-8'))
+                    shutil.move(access_log_path, access_log_path_new)
+                    results[file_name] = {
+                        'counters_done': counters_done,
+                        'errors': errors
+                    }
+                else:
+                    counters_done, errors = self.process_access_log(file_name, open(access_log_path).read())
+                    shutil.move(access_log_path, access_log_path_new)
+                    results[file_name] = {
+                        'counters_done': counters_done,
+                        'errors': errors
+                    }
+
+        mail_admins(
+            'DJANGO_NGINX_ACCESS',
+            'parsing done\n{result}'.format(
+                result='\n'.join(
+                    '{file_name}\ncounters_done={counters_done}\n{errors}'.format(
+                        file_name=file_name,
+                        counters_done=result['counters_done'],
+                        errors='\n'.join(error for error in result['errors'])
+                    ) for file_name, result in results.items()
+                )
+            )
+        )
+
+        # os.system('kill -USR1 `cat /var/run/nginx.pid`')
 
     @classmethod
     @transaction.atomic
@@ -191,141 +219,45 @@ class Command(BaseCommand):
 
         return counters_done, errors
 
-    def parse_nginx_log(self):
+    @staticmethod
+    def __get_local_dt(time_local):
         """
-        парсер логов
+        возвращает питонячий datetime из строки даты тпштч
+        :param time_local: дата nginx
+        :type time_local: str
+        :rtype: datetime
         """
+        return make_aware(datetime.strptime(time_local.split(' ')[0], '%d/%b/%Y:%H:%M:%S'))
 
-        prefix = str(int(time()))
-        processed_logs = os.path.join(self.NGINX_ACCESS_LOGS_DIR, 'django_nginx_processed')
-        if not os.path.exists(processed_logs):
-            os.makedirs(processed_logs)
-
-        results = {}
-
-        for file_name in os.listdir(self.NGINX_ACCESS_LOGS_DIR):
-            if file_name.startswith(self.NGINX_ACCESS_FILE_NAME):
-                access_log_path = os.path.join(
-                    self.NGINX_ACCESS_LOGS_DIR, file_name)
-                access_log_path_new = os.path.join(
-                    processed_logs,
-                    '{0}_{1}'.format(prefix, file_name))
-                if file_name.endswith('.gz'):
-                    with gzip.open(access_log_path) as f:
-                        counters_done, errors = self.process_access_log(file_name, f.read().decode('utf-8'))
-                    shutil.move(access_log_path, access_log_path_new)
-                    results[file_name] = {
-                        'counters_done': counters_done,
-                        'errors': errors
-                    }
-                else:
-                    counters_done, errors = self.process_access_log(file_name, open(access_log_path).read())
-                    shutil.move(access_log_path, access_log_path_new)
-                    results[file_name] = {
-                        'counters_done': counters_done,
-                        'errors': errors
-                    }
-
-        mail_admins(
-            'DJANGO_NGINX_ACCESS',
-            'parsing done\n{result}'.format(
-                result='\n'.join(
-                    '{file_name}\ncounters_done={counters_done}\n{errors}'.format(
-                        file_name=file_name,
-                        counters_done=result['counters_done'],
-                        errors='\n'.join(error for error in result['errors'])
-                    ) for file_name, result in results.items()
-                )
-            )
-        )
-
-        os.system('kill -USR1 `cat /var/run/nginx.pid`')
-
-    def handle(self, *args, **options):
+    @classmethod
+    def __get_host(cls, host):
         """
-        обработчик команды
-        :param args:
-        :param options:
-        :return:
+        преобразуем хост к единому виду
+        :param host: хост
+        :type host: str
+        :rtype: str
         """
+        if host.startswith('www'):
+            return host
+        elif host == '_':
+            return cls.NGINX_ACCESS_SERVER_IP
+        elif host != cls.NGINX_ACCESS_SERVER_IP:
+            return 'www.{0}'.format(host)
+        return host
 
-        self.parse_nginx_log()
-        self.aggregates()
-
-    @transaction.atomic
-    def create_aggregate_data(
-            self,
-            agg_month,
-            agg_urls_data,
-            urls_cache,
-            agg_ua_data,
-            ua_cache,
-            agg_ref_data,
-            ref_cache,
-    ):
+    @staticmethod
+    def __get_url(request):
         """
-        :param agg_month: месяц агрегации
-        :param agg_urls_data: данные агрегации урлов
-        :param urls_cache: кеш урлов
-        :param agg_ua_data: данные агрегации юзер агентов
-        :param ua_cache: кеш юзер-агентов
-        :param agg_ref_data: данные агрегации откуда пришли
-        :param ref_cache: кеш откуда пришли
+        вытаскиваем урл из запроса
+        :param request: запрос
+        :type request: str
+        :rtype: str
         """
+        return request.split(' ', 2)[1]
 
-        create_data = []
+    # endregion
 
-        for url, url_count in agg_urls_data:
-            urls_cache.setdefault(url, UrlsDictionary.objects.get_or_create(url=url)[0])
-
-            create_data.append(
-                UrlsAgg(
-                    agg_month=agg_month,
-                    url=urls_cache[url],
-                    amount=url_count,
-                )
-            )
-            if len(create_data) > 100:
-                UrlsAgg.objects.bulk_create(create_data)
-                create_data.clear()
-
-        UrlsAgg.objects.bulk_create(create_data)
-
-        create_data.clear()
-
-        for ua, ua_count in agg_ua_data:
-            ua_cache.setdefault(ua, UserAgentsDictionary.objects.get_or_create(user_agent=ua)[0])
-
-            create_data.append(
-                UserAgentsAgg(
-                    agg_month=agg_month,
-                    user_agent=ua_cache[ua],
-                    amount=ua_count,
-                )
-            )
-            if len(create_data) > 100:
-                UserAgentsAgg.objects.bulk_create(create_data)
-                create_data.clear()
-
-        UserAgentsAgg.objects.bulk_create(create_data)
-
-        create_data.clear()
-
-        for ref, ref_count in agg_ref_data:
-            ref_cache.setdefault(ref, RefererDictionary.objects.get_or_create(referer=ref)[0])
-
-            create_data.append(
-                RefererAgg(
-                    agg_month=agg_month,
-                    referer=ref_cache[ref],
-                    amount=ref_count,
-                )
-            )
-            if len(create_data) > 100:
-                RefererAgg.objects.bulk_create(create_data)
-                create_data.clear()
-
-        RefererAgg.objects.bulk_create(create_data)
+    # region aggregate
 
     def aggregates(self):
         """
@@ -425,3 +357,117 @@ class Command(BaseCommand):
             'DJANGO_NGINX_ACCESS',
             'aggregate done\n{0}'.format('.'.join(str(_date) for _date in aggregated_dates))
         )
+
+    @transaction.atomic
+    def create_aggregate_data(
+            self,
+            agg_month,
+            agg_urls_data,
+            urls_cache,
+            agg_ua_data,
+            ua_cache,
+            agg_ref_data,
+            ref_cache,
+    ):
+        """
+        :param agg_month: месяц агрегации
+        :param agg_urls_data: данные агрегации урлов
+        :param urls_cache: кеш урлов
+        :param agg_ua_data: данные агрегации юзер агентов
+        :param ua_cache: кеш юзер-агентов
+        :param agg_ref_data: данные агрегации откуда пришли
+        :param ref_cache: кеш откуда пришли
+        """
+
+        create_data = []
+
+        for url, url_count in agg_urls_data:
+            urls_cache.setdefault(url, UrlsDictionary.objects.get_or_create(url=url)[0])
+
+            create_data.append(
+                UrlsAgg(
+                    agg_month=agg_month,
+                    url=urls_cache[url],
+                    amount=url_count,
+                )
+            )
+            if len(create_data) > 100:
+                UrlsAgg.objects.bulk_create(create_data)
+                create_data.clear()
+
+        UrlsAgg.objects.bulk_create(create_data)
+
+        create_data.clear()
+
+        for ua, ua_count in agg_ua_data:
+            ua_cache.setdefault(ua, UserAgentsDictionary.objects.get_or_create(user_agent=ua)[0])
+
+            create_data.append(
+                UserAgentsAgg(
+                    agg_month=agg_month,
+                    user_agent=ua_cache[ua],
+                    amount=ua_count,
+                )
+            )
+            if len(create_data) > 100:
+                UserAgentsAgg.objects.bulk_create(create_data)
+                create_data.clear()
+
+        UserAgentsAgg.objects.bulk_create(create_data)
+
+        create_data.clear()
+
+        for ref, ref_count in agg_ref_data:
+            ref_cache.setdefault(ref, RefererDictionary.objects.get_or_create(referer=ref)[0])
+
+            create_data.append(
+                RefererAgg(
+                    agg_month=agg_month,
+                    referer=ref_cache[ref],
+                    amount=ref_count,
+                )
+            )
+            if len(create_data) > 100:
+                RefererAgg.objects.bulk_create(create_data)
+                create_data.clear()
+
+        RefererAgg.objects.bulk_create(create_data)
+
+    # endregion
+
+    # region analyze_time
+
+    def analyze_time(self):
+        """
+        анализ времени обработки запросов
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                '''
+select
+  *
+from (
+  select
+    url
+    , max(request_time) max_time
+    , min(request_time) min_time
+  from
+    django_nginx_access_logitem
+  where
+    request_time >= 1
+  group by
+    url
+) t
+order by 
+  max_time desc, min_time desc, url
+                '''
+            )
+
+            mail_admins(
+                'DJANGO_NGINX_ACCESS',
+                'times\n{0}'.format(
+                    '\n'.join('{0[1]}/{0[2]} {0[0]}'.format(data) for data in cursor.fetchall()))
+            )
+
+    # endregion
