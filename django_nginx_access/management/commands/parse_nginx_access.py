@@ -24,6 +24,23 @@ from django_nginx_access.models import (
 )
 
 
+def error(func):
+    def inner(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as err:
+            import traceback
+            mail_admins(
+                'DJANGO_NGINX_ACCESS',
+                'ERROR:\n{0}\n{1}'.format(
+                    str(err),
+                    str(traceback.format_exc())
+                )
+            )
+            raise
+    return inner
+
+
 class Command(BaseCommand):
     """
     парсер nginx файла доступа
@@ -45,6 +62,7 @@ class Command(BaseCommand):
 
     help = 'парсер nginx файла доступа'
 
+    @error
     def handle(self, *args, **options):
         """
         обработчик команды
@@ -107,7 +125,7 @@ class Command(BaseCommand):
             )
         )
 
-        # os.system('kill -USR1 `cat /var/run/nginx.pid`')
+        os.system('kill -USR1 `cat /var/run/nginx.pid`')
 
     @classmethod
     @transaction.atomic
