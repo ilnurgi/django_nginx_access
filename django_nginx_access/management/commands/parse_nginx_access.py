@@ -377,6 +377,17 @@ class Command(BaseCommand):
         )
 
     @transaction.atomic
+    def __bulk_create(self, object_model, create_data):
+        try:
+            object_model.objects.bulk_create(create_data)
+        except IntegrityError:
+            for data in create_data:
+                try:
+                    data.save()
+                except IntegrityError:
+                    pass
+
+    @transaction.atomic
     def create_aggregate_data(
             self,
             agg_month,
@@ -410,17 +421,10 @@ class Command(BaseCommand):
                 )
             )
             if len(create_data) > 100:
-                try:
-                    UrlsAgg.objects.bulk_create(create_data)
-                except IntegrityError:
-                    for data in create_data:
-                        try:
-                            data.save()
-                        except IntegrityError:
-                            pass
+                self.__bulk_create(UrlsAgg, create_data)
                 create_data.clear()
 
-        UrlsAgg.objects.bulk_create(create_data)
+        self.__bulk_create(UrlsAgg, create_data)
 
         create_data.clear()
 
@@ -435,10 +439,12 @@ class Command(BaseCommand):
                 )
             )
             if len(create_data) > 100:
-                UserAgentsAgg.objects.bulk_create(create_data)
+                self.__bulk_create(UserAgentsAgg, create_data)
+                # UserAgentsAgg.objects.bulk_create(create_data)
                 create_data.clear()
 
-        UserAgentsAgg.objects.bulk_create(create_data)
+        self.__bulk_create(UserAgentsAgg, create_data)
+        # UserAgentsAgg.objects.bulk_create(create_data)
 
         create_data.clear()
 
@@ -453,10 +459,12 @@ class Command(BaseCommand):
                 )
             )
             if len(create_data) > 100:
-                RefererAgg.objects.bulk_create(create_data)
+                self.__bulk_create(RefererAgg, create_data)
+                # RefererAgg.objects.bulk_create(create_data)
                 create_data.clear()
 
-        RefererAgg.objects.bulk_create(create_data)
+        self.__bulk_create(RefererAgg, create_data)
+        # RefererAgg.objects.bulk_create(create_data)
 
     # endregion
 
