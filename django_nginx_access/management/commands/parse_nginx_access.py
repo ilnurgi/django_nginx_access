@@ -356,9 +356,9 @@ class Command(BaseCommand):
                 )
                 ref_data = cursor.fetchall()
 
-                self.create_urls_data(step_month, urls_data, urls_cache, UrlsDictionary, UrlsAgg, 'url')
-                self.create_urls_data(step_month, ua_data, ua_cache, UserAgentsDictionary, UserAgentsAgg, 'user_agent')
-                self.create_urls_data(step_month, ref_data, ref_cache, RefererDictionary, RefererAgg, 'referer')
+                self.__create_data(step_month, urls_data, urls_cache, UrlsDictionary, UrlsAgg, 'url')
+                self.__create_data(step_month, ua_data, ua_cache, UserAgentsDictionary, UserAgentsAgg, 'user_agent')
+                self.__create_data(step_month, ref_data, ref_cache, RefererDictionary, RefererAgg, 'referer')
 
                 cursor.execute(
                     '''
@@ -378,8 +378,7 @@ class Command(BaseCommand):
             'aggregate done\n{0}'.format('.'.join(str(_date) for _date in aggregated_dates))
         )
 
-    @transaction.atomic
-    def create_urls_data(self, agg_month, agg_data, cache, dict_model, object_model, dict_field):
+    def __create_data(self, agg_month, agg_data, cache, dict_model, object_model, dict_field):
         """
         :param agg_month: месяц агрегации
         :param agg_urls_data: данные агрегации урлов
