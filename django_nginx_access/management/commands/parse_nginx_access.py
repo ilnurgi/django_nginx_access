@@ -356,7 +356,9 @@ class Command(BaseCommand):
                 )
                 ref_data = cursor.fetchall()
 
-                self.create_aggregate_data(step_month, urls_data, urls_cache, ua_data, ua_cache, ref_data, ref_cache)
+                self.create_urls_data(step_month, urls_data, urls_cache, UrlsDictionary, UrlsAgg, 'url')
+                self.create_urls_data(step_month, ua_data, ua_cache, UserAgentsDictionary, UserAgentsAgg, 'user_agent')
+                self.create_urls_data(step_month, ref_data, ref_cache, RefererDictionary, RefererAgg, 'referer')
 
                 cursor.execute(
                     '''
@@ -377,27 +379,7 @@ class Command(BaseCommand):
         )
 
     @transaction.atomic
-    def __bulk_create(self, object_model, create_data):
-        try:
-            object_model.objects.bulk_create(create_data)
-        except IntegrityError:
-            for data in create_data:
-                try:
-                    data.save()
-                except IntegrityError:
-                    pass
-
-    @transaction.atomic
-    def create_aggregate_data(
-            self,
-            agg_month,
-            agg_urls_data,
-            urls_cache,
-            agg_ua_data,
-            ua_cache,
-            agg_ref_data,
-            ref_cache,
-    ):
+    def create_urls_data(self, agg_month, agg_data, cache, dict_model, object_model, dict_field):
         """
         :param agg_month: месяц агрегации
         :param agg_urls_data: данные агрегации урлов
@@ -410,61 +392,35 @@ class Command(BaseCommand):
 
         create_data = []
 
-        for url, url_count in agg_urls_data:
-            urls_cache.setdefault(url, UrlsDictionary.objects.get_or_create(url=url)[0])
+        for agg_field, agg_count in agg_data:
+            cache.setdefault(agg_field, dict_model.objects.get_or_create(**{dict_field: agg_field})[0])
 
             create_data.append(
-                UrlsAgg(
-                    agg_month=agg_month,
-                    url=urls_cache[url],
-                    amount=url_count,
-                )
+                object_model(**{
+                    'agg_month': agg_month,
+                    dict_field: cache[agg_field],
+                    'amount': agg_count,
+                })
             )
             if len(create_data) > 100:
-                self.__bulk_create(UrlsAgg, create_data)
+                try:
+                    object_model.objects.bulk_create(create_data)
+                except IntegrityError:
+                    for data in create_data:
+                        try:
+                            data.save()
+                        except IntegrityError:
+                            pass
                 create_data.clear()
 
-        self.__bulk_create(UrlsAgg, create_data)
-
-        create_data.clear()
-
-        for ua, ua_count in agg_ua_data:
-            ua_cache.setdefault(ua, UserAgentsDictionary.objects.get_or_create(user_agent=ua)[0])
-
-            create_data.append(
-                UserAgentsAgg(
-                    agg_month=agg_month,
-                    user_agent=ua_cache[ua],
-                    amount=ua_count,
-                )
-            )
-            if len(create_data) > 100:
-                self.__bulk_create(UserAgentsAgg, create_data)
-                # UserAgentsAgg.objects.bulk_create(create_data)
-                create_data.clear()
-
-        self.__bulk_create(UserAgentsAgg, create_data)
-        # UserAgentsAgg.objects.bulk_create(create_data)
-
-        create_data.clear()
-
-        for ref, ref_count in agg_ref_data:
-            ref_cache.setdefault(ref, RefererDictionary.objects.get_or_create(referer=ref)[0])
-
-            create_data.append(
-                RefererAgg(
-                    agg_month=agg_month,
-                    referer=ref_cache[ref],
-                    amount=ref_count,
-                )
-            )
-            if len(create_data) > 100:
-                self.__bulk_create(RefererAgg, create_data)
-                # RefererAgg.objects.bulk_create(create_data)
-                create_data.clear()
-
-        self.__bulk_create(RefererAgg, create_data)
-        # RefererAgg.objects.bulk_create(create_data)
+        try:
+            object_model.objects.bulk_create(create_data)
+        except IntegrityError:
+            for data in create_data:
+                try:
+                    data.save()
+                except IntegrityError:
+                    pass
 
     # endregion
 
