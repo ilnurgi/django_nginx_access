@@ -13,7 +13,7 @@ from time import time
 from django.conf import settings
 from django.core.mail import mail_admins
 from django.core.management.base import BaseCommand
-from django.db import transaction, connection
+from django.db import transaction, connection, IntegrityError
 from django.utils.timezone import make_aware
 
 from dateutil.relativedelta import relativedelta
@@ -410,7 +410,14 @@ class Command(BaseCommand):
                 )
             )
             if len(create_data) > 100:
-                UrlsAgg.objects.bulk_create(create_data)
+                try:
+                    UrlsAgg.objects.bulk_create(create_data)
+                except IntegrityError:
+                    for data in create_data:
+                        try:
+                            data.save()
+                        except IntegrityError:
+                            pass
                 create_data.clear()
 
         UrlsAgg.objects.bulk_create(create_data)
