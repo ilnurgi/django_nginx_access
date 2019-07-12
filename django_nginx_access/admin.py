@@ -33,6 +33,7 @@ class UrlsDictionaryAdmin(admin.ModelAdmin):
     админка справочника урлов
     """
     search_fields = ('url', )
+    ordering = ('url', )
 
 
 class UADictionaryAdmin(admin.ModelAdmin):
