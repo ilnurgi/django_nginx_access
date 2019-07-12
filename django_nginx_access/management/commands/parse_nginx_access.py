@@ -46,14 +46,26 @@ class Command(BaseCommand):
     парсер nginx файла доступа
     """
 
-    NGINX_ACCESS_LOGS_DIR = settings.NGINX_ACCESS_LOGS_DIR
-    NGINX_ACCESS_FILE_NAME = settings.NGINX_ACCESS_FILE_NAME
+    LOGS_DIR = settings.NGINX_ACCESS_LOGS_DIR
+    FILE_NAME = settings.NGINX_ACCESS_FILE_NAME
 
-    NGINX_ACCESS_SEP = settings.NGINX_ACCESS_SEP
-    NGINX_ACCESS_SERVER_IP = settings.NGINX_ACCESS_SERVER_IP
+    SEP = settings.NGINX_ACCESS_SEP
+    SERVER_IP = settings.NGINX_ACCESS_SERVER_IP
 
-    NGINX_ACCESS_EXCLUDE_STATIC_EXT = settings.NGINX_ACCESS_EXCLUDE_STATIC_EXT
-    NGINX_ACCESS_EXCLUDE_REFS = settings.NGINX_ACCESS_EXCLUDE_REFS
+    # исключения для урлов, по окончанию, например статика
+    EXCLUDE_URL_EW = {
+        excl.lower().strip() for excl in settings.NGINX_ACCESS_EXCLUDE_URL_EW
+    }
+
+    # исключения для урлов, по началу, например админка
+    EXCLUDE_URL_SW = {
+        excl.lower().strip() for excl in settings.NGINX_ACCESS_EXCLUDE_URL_SW
+    }
+
+    # исключения для реферееров, ботов
+    EXCLUDE_REFS_IN = {
+        excl.lower().strip() for excl in settings.NGINX_ACCESS_EXCLUDE_REFS_IN
+    }
 
     MAX_LENGTH_HOST = LogItem._meta.get_field('host').max_length
     MAX_LENGTH_URL = LogItem._meta.get_field('url').max_length
@@ -83,16 +95,16 @@ class Command(BaseCommand):
         """
 
         prefix = str(int(time()))
-        processed_logs = os.path.join(self.NGINX_ACCESS_LOGS_DIR, 'django_nginx_processed')
+        processed_logs = os.path.join(self.LOGS_DIR, 'django_nginx_processed')
         if not os.path.exists(processed_logs):
             os.makedirs(processed_logs)
 
         results = {}
 
-        for file_name in os.listdir(self.NGINX_ACCESS_LOGS_DIR):
-            if file_name.startswith(self.NGINX_ACCESS_FILE_NAME):
+        for file_name in os.listdir(self.LOGS_DIR):
+            if file_name.startswith(self.FILE_NAME):
                 access_log_path = os.path.join(
-                    self.NGINX_ACCESS_LOGS_DIR, file_name)
+                    self.LOGS_DIR, file_name)
                 access_log_path_new = os.path.join(
                     processed_logs,
                     '{0}_{1}'.format(prefix, file_name))
@@ -143,7 +155,7 @@ class Command(BaseCommand):
 
         for line_number, line in enumerate(file_content.split('\n')):
 
-            if not line or cls.NGINX_ACCESS_SEP not in line:
+            if not line or cls.SEP not in line:
                 continue
 
             try:
@@ -160,7 +172,7 @@ class Command(BaseCommand):
                     request_length,
                     body_bytes_sent,
                     http_user_agent
-                ) = line.split(cls.NGINX_ACCESS_SEP)
+                ) = line.split(cls.SEP)
             except Exception as err:
                 errors.append(
                     '{line_number}: {line}\n{err}\n{traceback}'.format(
@@ -189,12 +201,16 @@ class Command(BaseCommand):
                 )
                 continue
 
-            # исключаем урлы
-            if any(url.lower().endswith(excl) for excl in cls.NGINX_ACCESS_EXCLUDE_STATIC_EXT):
-                continue
-
-            # исключаем ботов по рефереру
-            if any(excl.lower() in http_referer.lower() for excl in cls.NGINX_ACCESS_EXCLUDE_REFS):
+            url_lower_strip = url.lower().strip()
+            http_referer_lower_strip = http_referer.lower().strip()
+            if (
+                    # исключаем статику
+                    any(url_lower_strip.endswith(excl) for excl in cls.EXCLUDE_URL_EW) or
+                    # исключаем урлы по началу урла
+                    any(url_lower_strip.startswith(excl) for excl in cls.EXCLUDE_URL_SW) or
+                    # исключаем ботов по рефереру
+                    any(excl in http_referer_lower_strip for excl in cls.EXCLUDE_REFS_IN)
+            ):
                 continue
 
             create_objects.append(
@@ -258,8 +274,8 @@ class Command(BaseCommand):
         if host.startswith('www'):
             return host
         elif host == '_':
-            return cls.NGINX_ACCESS_SERVER_IP
-        elif host != cls.NGINX_ACCESS_SERVER_IP:
+            return cls.SERVER_IP
+        elif host != cls.SERVER_IP:
             return 'www.{0}'.format(host)
         return host
 
