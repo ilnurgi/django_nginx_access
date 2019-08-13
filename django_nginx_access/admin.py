@@ -2,11 +2,8 @@
 настройка админки
 """
 
-import socket
-
-from http.client import HTTPConnection
-
 from django.contrib import admin
+from django.utils.safestring import mark_safe
 
 from django_nginx_access.models import (
     LogItem, UrlsDictionary, UrlsAgg, UserAgentsAgg, UserAgentsDictionary, RefererAgg, RefererDictionary
@@ -40,18 +37,11 @@ class UrlsDictionaryAdmin(admin.ModelAdmin):
     """
     search_fields = ('url', )
     ordering = ('url', )
-    list_display = ('url', 'http_status')
-    readonly_fields = ('http_status', )
+    list_display = ('url', 'href')
+    readonly_fields = ('href', )
 
-    def http_status(self, inst):
-        conn = HTTPConnection('127.0.0.1', timeout=1)
-
-        try:
-            conn.request('HEAD', inst.url)
-            res = conn.getresponse()
-        except socket.timeout:
-            return 'timeout'
-        return str(res.status)
+    def href(self, inst):
+        return mark_safe('<a href="{0}">{0}</a>'.format(''.join(('http://ilnurgi.ru', inst.url))))
 
 
 class UADictionaryAdmin(admin.ModelAdmin):
