@@ -43,7 +43,7 @@ class UrlsDictionaryAdmin(admin.ModelAdmin):
     readonly_fields = ('http_status', )
 
     def http_status(self, inst):
-        conn = HTTPConnection('www.ilnurgi.ru')
+        conn = HTTPConnection('www.ilnurgi.ru', timeout=1)
         conn.request('HEAD', inst.url)
         res = conn.getresponse()
         return str(res.status)
