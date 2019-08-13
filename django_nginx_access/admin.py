@@ -44,7 +44,7 @@ class UrlsDictionaryAdmin(admin.ModelAdmin):
     readonly_fields = ('http_status', )
 
     def http_status(self, inst):
-        conn = HTTPConnection('localhost')
+        conn = HTTPConnection('localhost', timeout=1)
 
         try:
             conn.request('HEAD', inst.url)
