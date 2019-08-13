@@ -45,13 +45,13 @@ class UrlsDictionaryAdmin(admin.ModelAdmin):
 
     def http_status(self, inst):
         conn = HTTPConnection('www.ilnurgi.ru', timeout=1)
+
         try:
             conn.request('HEAD', inst.url)
+            res = conn.getresponse()
         except socket.timeout:
             return 'timeout'
-        else:
-            res = conn.getresponse()
-            return str(res.status)
+        return str(res.status)
 
 
 class UADictionaryAdmin(admin.ModelAdmin):
