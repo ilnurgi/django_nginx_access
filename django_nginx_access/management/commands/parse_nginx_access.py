@@ -52,6 +52,8 @@ class Command(BaseCommand):
     SEP = settings.NGINX_ACCESS_SEP
     SERVER_IP = settings.NGINX_ACCESS_SERVER_IP
 
+    EXCLUDE_STATUSES = settings.NGINX_ACCESS_EXCLUDE_STATUSES
+
     # исключения для урлов, по окончанию, например статика
     EXCLUDE_URL_EW = {
         excl.lower().strip() for excl in settings.NGINX_ACCESS_EXCLUDE_URL_EW
@@ -185,6 +187,9 @@ class Command(BaseCommand):
                 continue
             else:
                 counters_done += 1
+
+            if status in cls.EXCLUDE_STATUSES:
+                continue
 
             try:
                 time_local = cls.__get_local_dt(time_local)
