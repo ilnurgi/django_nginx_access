@@ -2,8 +2,9 @@
 настройка админки
 """
 
+import socket
+
 from http.client import HTTPConnection
-from urllib.parse import urljoin
 
 from django.contrib import admin
 
@@ -44,9 +45,13 @@ class UrlsDictionaryAdmin(admin.ModelAdmin):
 
     def http_status(self, inst):
         conn = HTTPConnection('www.ilnurgi.ru', timeout=1)
-        conn.request('HEAD', inst.url)
-        res = conn.getresponse()
-        return str(res.status)
+        try:
+            conn.request('HEAD', inst.url)
+        except socket.timeout:
+            return 'timeout'
+        else:
+            res = conn.getresponse()
+            return str(res.status)
 
 
 class UADictionaryAdmin(admin.ModelAdmin):
