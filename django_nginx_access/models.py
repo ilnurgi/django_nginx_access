@@ -92,7 +92,8 @@ class UserAgentsDictionary(models.Model):
     справочник UA
     """
 
-    user_agent = models.CharField(max_length=100, unique=True)
+    # user_agent = models.CharField(max_length=100, unique=True)
+    user_agent = models.TextField(unique=True)
 
     def __str__(self):
         """
