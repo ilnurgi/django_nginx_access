@@ -69,6 +69,11 @@ class Command(BaseCommand):
         excl.lower().strip() for excl in settings.NGINX_ACCESS_EXCLUDE_REFS_IN
     }
 
+    # исключения для реферееров
+    EXCLUDE_REFS_SW = {
+        excl.lower().strip() for excl in settings.NGINX_ACCESS_EXCLUDE_REFS_SW
+    }
+
     MAX_LENGTH_HOST = LogItem._meta.get_field('host').max_length
     MAX_LENGTH_URL = LogItem._meta.get_field('url').max_length
     MAX_LENGTH_HTTP_REF = LogItem._meta.get_field('http_referer').max_length
@@ -214,7 +219,9 @@ class Command(BaseCommand):
                     # исключаем урлы по началу урла
                     any(url_lower_strip.startswith(excl) for excl in cls.EXCLUDE_URL_SW) or
                     # исключаем ботов по рефереру
-                    any(excl in http_referer_lower_strip for excl in cls.EXCLUDE_REFS_IN)
+                    any(excl in http_referer_lower_strip for excl in cls.EXCLUDE_REFS_IN) or
+                    # исключаем другие реферы
+                    any(http_referer_lower_strip.startswith(excl) for excl in cls.EXCLUDE_REFS_IN)
             ):
                 continue
 
