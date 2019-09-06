@@ -74,6 +74,8 @@ class Command(BaseCommand):
         excl.lower().strip() for excl in settings.NGINX_ACCESS_EXCLUDE_REFS_SW
     }
 
+    MERGE_REFS = settings.NGINX_ACCESS_MERGE_REFS
+
     MAX_LENGTH_HOST = LogItem._meta.get_field('host').max_length
     MAX_LENGTH_URL = LogItem._meta.get_field('url').max_length
     MAX_LENGTH_HTTP_REF = LogItem._meta.get_field('http_referer').max_length
@@ -200,6 +202,7 @@ class Command(BaseCommand):
                 time_local = cls.__get_local_dt(time_local)
                 host = cls.__get_host(host)
                 url = cls.__get_url(request)
+                http_referer = cls.__get_http_referer(http_referer)
             except Exception as err:
                 errors.append(
                     '{line_number}: {line}\n{err}\n{traceback}'.format(
@@ -300,6 +303,17 @@ class Command(BaseCommand):
         :rtype: str
         """
         return request.split(' ', 2)[1]
+
+    @classmethod
+    def __get_http_referer(cls, http_ref):
+        """
+        мержим в одну запись откуда пришли
+        """
+        for key, templates in cls.MERGE_REFS.items():
+            if any(http_ref.startswith(k) for k in templates.get('sw_template', ())):
+                return key
+
+        return http_ref
 
     # endregion
 
