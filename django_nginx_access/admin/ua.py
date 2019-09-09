@@ -33,7 +33,6 @@ class UADictionaryAdmin(admin.ModelAdmin):
     админка справочника юзер агнетов
     """
     search_fields = ('user_agent', )
-    ordering = ('user_agent', )
     list_display = ('user_agent', 'count_views')
     list_filter = [
         RefsSeeCountersFilter

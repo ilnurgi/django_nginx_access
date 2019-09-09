@@ -34,7 +34,6 @@ class RefererDictionaryAdmin(admin.ModelAdmin):
     админка агрегации откуда
     """
     search_fields = ('referer', )
-    ordering = ('referer', )
     list_display = ('referer', 'count_views')
     list_filter = [
         RefsSeeCountersFilter

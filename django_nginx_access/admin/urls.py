@@ -35,7 +35,6 @@ class UrlsDictionaryAdmin(admin.ModelAdmin):
     админка справочника урлов
     """
     search_fields = ('url', )
-    ordering = ('url', )
     list_display = ('url', 'count_views', 'href')
     readonly_fields = ('href', )
     list_filter = [

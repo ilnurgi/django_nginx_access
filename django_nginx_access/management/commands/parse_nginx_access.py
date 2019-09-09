@@ -309,8 +309,11 @@ class Command(BaseCommand):
         """
         мержим в одну запись откуда пришли
         """
-        for key, templates in cls.MERGE_REFS.items():
-            if any(http_ref.startswith(k) for k in templates.get('sw_template', ())):
+        for merge_info in cls.MERGE_REFS:
+            key = merge_info['key']
+            sw_templates = merge_info['sw_templates']
+
+            if any(http_ref.startswith(k) for k in sw_templates):
                 return key
 
         return http_ref
