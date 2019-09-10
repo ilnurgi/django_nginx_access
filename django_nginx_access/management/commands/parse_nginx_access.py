@@ -52,7 +52,7 @@ class Command(BaseCommand):
     SEP = settings.NGINX_ACCESS_SEP
     SERVER_IP = settings.NGINX_ACCESS_SERVER_IP
 
-    EXCLUDE_STATUSES = settings.NGINX_ACCESS_EXCLUDE_STATUSES
+    EXCLUDE_STATUSES_STR = [str(status) for status in settings.NGINX_ACCESS_EXCLUDE_STATUSES]
 
     # исключения для урлов, по окончанию, например статика
     EXCLUDE_URL_EW = {
@@ -72,6 +72,11 @@ class Command(BaseCommand):
     # исключения для реферееров
     EXCLUDE_REFS_SW = {
         excl.lower().strip() for excl in settings.NGINX_ACCESS_EXCLUDE_REFS_SW
+    }
+
+    # исключения для user-agent
+    EXCLUDE_UA_IN = {
+        excl.lower().strip() for excl in settings.NGINX_ACCESS_EXCLUDE_UA_IN
     }
 
     MERGE_REFS = settings.NGINX_ACCESS_MERGE_REFS
@@ -195,7 +200,7 @@ class Command(BaseCommand):
             else:
                 counters_done += 1
 
-            if status in cls.EXCLUDE_STATUSES:
+            if status in cls.EXCLUDE_STATUSES_STR:
                 continue
 
             try:
@@ -216,6 +221,7 @@ class Command(BaseCommand):
 
             url_lower_strip = url.lower().strip()
             http_referer_lower_strip = http_referer.lower().strip()
+            http_user_agent_lower_strip = http_user_agent.lower().strip()
             if (
                     # исключаем статику
                     any(url_lower_strip.endswith(excl) for excl in cls.EXCLUDE_URL_EW) or
@@ -224,7 +230,9 @@ class Command(BaseCommand):
                     # исключаем ботов по рефереру
                     any(excl in http_referer_lower_strip for excl in cls.EXCLUDE_REFS_IN) or
                     # исключаем другие реферы
-                    any(http_referer_lower_strip.startswith(excl) for excl in cls.EXCLUDE_REFS_IN)
+                    any(http_referer_lower_strip.startswith(excl) for excl in cls.EXCLUDE_REFS_SW) or
+                    # исключаем сведения по user-agent
+                    any(excl in http_user_agent_lower_strip for excl in cls.EXCLUDE_UA_IN)
             ):
                 continue
 
