@@ -3,13 +3,13 @@ from datetime import date, timedelta
 from django.contrib import admin
 from django.db.models import Sum, OuterRef, Subquery
 
-from django_nginx_access.admin.filters import SeeCountersFilter
+from django_nginx_access.admin.filters import SeeCountersFilter, TopFilter
 from django_nginx_access.models import RefererAgg, RefererDictionary
 
 
 class RefsSeeCountersFilter(SeeCountersFilter):
 
-    def get_counter_subquery(self, value):
+    def get_id_subquery(self, value):
         today = date.today()
         return (
             RefererAgg.objects
@@ -18,6 +18,26 @@ class RefsSeeCountersFilter(SeeCountersFilter):
                 .annotate(views_count=Sum('amount'))
                 .filter(views_count__lt=int(value))
                 .values('referer_id')
+        )
+
+
+class RefsTopFilter(TopFilter):
+
+    def get_id_subquery(self, value):
+        return (
+            RefererAgg.objects
+                .values('referer_id')
+                .annotate(views_count=Sum('amount'))
+                .order_by('-views_count')
+                .values('referer_id')[:100]
+        )
+
+    def get_counter_subquery(self, value):
+        return (
+            RefererAgg.objects
+                .filter(referer=OuterRef('pk'))
+                .annotate(sum_amount=Sum('amount'))
+                .values('sum_amount')[:1]
         )
 
 
@@ -36,7 +56,8 @@ class RefererDictionaryAdmin(admin.ModelAdmin):
     search_fields = ('referer', )
     list_display = ('referer', 'count_views')
     list_filter = [
-        RefsSeeCountersFilter
+        RefsSeeCountersFilter,
+        RefsTopFilter,
     ]
 
     def count_views(self, inst):

@@ -3,13 +3,13 @@ from datetime import date, timedelta
 from django.contrib import admin
 from django.db.models import Sum, OuterRef, Subquery
 
-from django_nginx_access.admin.filters import SeeCountersFilter
+from django_nginx_access.admin.filters import SeeCountersFilter, TopFilter
 from django_nginx_access.models import UserAgentsAgg, UserAgentsDictionary
 
 
 class RefsSeeCountersFilter(SeeCountersFilter):
 
-    def get_counter_subquery(self, value):
+    def get_id_subquery(self, value):
         today = date.today()
         return (
             UserAgentsAgg.objects
@@ -19,6 +19,27 @@ class RefsSeeCountersFilter(SeeCountersFilter):
                 .filter(views_count__lt=int(value))
                 .values('user_agent_id')
         )
+
+
+class UATopFilter(TopFilter):
+
+    def get_id_subquery(self, value):
+        return (
+            UserAgentsAgg.objects
+                .values('user_agent_id')
+                .annotate(views_count=Sum('amount'))
+                .order_by('-views_count')
+                .values('user_agent_id')[:100]
+        )
+
+    def get_counter_subquery(self, value):
+        return (
+            UserAgentsAgg.objects
+                .filter(user_agent=OuterRef('pk'))
+                .annotate(sum_amount=Sum('amount'))
+                .values('sum_amount')[:1]
+        )
+
 
 
 class UAAdmin(admin.ModelAdmin):
@@ -35,7 +56,8 @@ class UADictionaryAdmin(admin.ModelAdmin):
     search_fields = ('user_agent', )
     list_display = ('user_agent', 'count_views')
     list_filter = [
-        RefsSeeCountersFilter
+        RefsSeeCountersFilter,
+        UATopFilter,
     ]
 
     def count_views(self, inst):

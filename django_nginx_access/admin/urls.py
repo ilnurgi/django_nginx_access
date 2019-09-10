@@ -5,13 +5,13 @@ from django.db import models
 from django.db.models import Sum, Subquery, OuterRef
 from django.utils.safestring import mark_safe
 
-from django_nginx_access.admin.filters import SeeCountersFilter
+from django_nginx_access.admin.filters import SeeCountersFilter, TopFilter
 from django_nginx_access.models import UrlsAgg, UrlsDictionary
 
 
 class UrlsSeeCountersFilter(SeeCountersFilter):
 
-    def get_counter_subquery(self, value):
+    def get_id_subquery(self, value):
         today = date.today()
         return (
             UrlsAgg.objects
@@ -20,6 +20,26 @@ class UrlsSeeCountersFilter(SeeCountersFilter):
                 .annotate(views_count=Sum('amount'))
                 .filter(views_count__lt=int(value))
                 .values('url_id')
+        )
+
+
+class UrlsTopFilter(TopFilter):
+
+    def get_id_subquery(self, value):
+        return (
+            UrlsAgg.objects
+                .values('url_id')
+                .annotate(views_count=Sum('amount'))
+                .order_by('-views_count')
+                .values('url_id')[:100]
+        )
+
+    def get_counter_subquery(self, value):
+        return (
+            UrlsAgg.objects
+                .filter(url=OuterRef('pk'))
+                .annotate(sum_amount=Sum('amount'))
+                .values('sum_amount')[:1]
         )
 
 
@@ -39,6 +59,7 @@ class UrlsDictionaryAdmin(admin.ModelAdmin):
     readonly_fields = ('href', )
     list_filter = [
         UrlsSeeCountersFilter,
+        UrlsTopFilter,
     ]
 
     def get_queryset(self, request):
@@ -57,7 +78,6 @@ class UrlsDictionaryAdmin(admin.ModelAdmin):
 
     def count_views(self, inst):
         return inst.count_views
-
 
 
 admin.site.register(UrlsAgg, UrlsAggAdmin)
