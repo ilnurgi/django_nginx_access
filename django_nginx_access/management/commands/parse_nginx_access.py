@@ -88,7 +88,6 @@ class Command(BaseCommand):
     MAX_LENGTH_HOST = LogItem._meta.get_field('host').max_length
     MAX_LENGTH_URL = LogItem._meta.get_field('url').max_length
     MAX_LENGTH_HTTP_REF = LogItem._meta.get_field('http_referer').max_length
-    MAX_LENGTH_UA = LogItem._meta.get_field('http_user_agent').max_length
 
     help = 'парсер nginx файла доступа'
 
@@ -253,7 +252,7 @@ class Command(BaseCommand):
                     http_referer=http_referer[:cls.MAX_LENGTH_HTTP_REF],
                     request_length=request_length,
                     body_bytes_sent=body_bytes_sent,
-                    http_user_agent=http_user_agent[:cls.MAX_LENGTH_UA],
+                    http_user_agent=http_user_agent,
                 )
             )
 

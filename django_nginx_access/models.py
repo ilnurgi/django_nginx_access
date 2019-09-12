@@ -21,7 +21,7 @@ class LogItem(models.Model):
     http_referer = models.URLField(null=False)
     request_length = models.IntegerField(null=False)
     body_bytes_sent = models.IntegerField(null=False)
-    http_user_agent = models.CharField(max_length=100, null=False)
+    http_user_agent = models.TextField(null=False)
 
     def __str__(self):
         """
