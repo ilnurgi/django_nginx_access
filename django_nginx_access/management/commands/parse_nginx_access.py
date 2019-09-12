@@ -74,6 +74,10 @@ class Command(BaseCommand):
         excl.lower().strip() for excl in settings.NGINX_ACCESS_EXCLUDE_REFS_SW
     }
 
+    EXCLUDE_REFS_AGG_SW = {
+        excl.lower().strip() for excl in settings.NGINX_ACCESS_EXCLUDE_REFS_AGG_SW
+    }
+
     # исключения для user-agent
     EXCLUDE_UA_IN = {
         excl.lower().strip() for excl in settings.NGINX_ACCESS_EXCLUDE_UA_IN
@@ -296,7 +300,7 @@ class Command(BaseCommand):
         """
         if host.startswith('www'):
             return host
-        elif host == '_':
+        elif host in ('_', '-'):
             return cls.SERVER_IP
         elif host != cls.SERVER_IP:
             return 'www.{0}'.format(host)
@@ -407,7 +411,11 @@ class Command(BaseCommand):
                     ''',
                     sql_params
                 )
-                ref_data = cursor.fetchall()
+                ref_data = [
+                    (ref, amount)
+                    for ref, amount in cursor.fetchall()
+                    if not any(ref.lower().strip().startswith(excl_ref) for excl_ref in self.EXCLUDE_REFS_AGG_SW)
+                ]
 
                 self.__create_data(step_month, urls_data, urls_cache, UrlsDictionary, UrlsAgg, 'url')
                 self.__create_data(step_month, ua_data, ua_cache, UserAgentsDictionary, UserAgentsAgg, 'user_agent')
