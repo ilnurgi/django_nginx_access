@@ -80,7 +80,7 @@ class StatisticView(TemplateView):
                     'datasets': [
                         {
                             'label': '{0}, просмотров {1}'.format(_label, year_counters[_label]),
-                            'data': _data,
+                            'data': sorted(_data, key=lambda item: item['x']),
                             'color': (
                                 year_colors_map[_label]
                                 if _label in year_colors_map

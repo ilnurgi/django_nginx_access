@@ -46,7 +46,7 @@ class RefererAggAdmin(admin.ModelAdmin):
     админка справочника откуда
     """
     ordering = ('-agg_month', 'referer__referer')
-    list_display = ('agg_month', 'referer', )
+    list_display = ('agg_month', 'referer', 'amount')
 
 
 class RefererDictionaryAdmin(admin.ModelAdmin):

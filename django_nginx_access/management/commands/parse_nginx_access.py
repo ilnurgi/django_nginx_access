@@ -323,6 +323,10 @@ class Command(BaseCommand):
         for merge_info in cls.MERGE_REFS:
             key = merge_info['key']
             sw_templates = merge_info['sw_templates']
+            exclude_sw_templates = merge_info.get('exclude_sw_templates', ())
+
+            if any(http_ref.startswith(k) for k in exclude_sw_templates):
+                return ''
 
             if any(http_ref.startswith(k) for k in sw_templates):
                 return key
@@ -360,7 +364,7 @@ class Command(BaseCommand):
 
             sql_params = {
                 'date_start': step_month,
-                'date_end': step_month + relativedelta(months=1)
+                'date_end': step_month + relativedelta(months=1) - relativedelta(days=1)
             }
 
             with connection.cursor() as cursor:
@@ -413,7 +417,11 @@ class Command(BaseCommand):
                 ref_data = [
                     (ref, amount)
                     for ref, amount in cursor.fetchall()
-                    if not any(ref.lower().strip().startswith(excl_ref) for excl_ref in self.EXCLUDE_REFS_AGG_SW)
+                    if (
+                            ref.lower().strip() and
+                            ref.lower().strip() != '-' and
+                            not any(ref.lower().strip().startswith(excl_ref) for excl_ref in self.EXCLUDE_REFS_AGG_SW)
+                    )
                 ]
 
                 self.__create_data(step_month, urls_data, urls_cache, UrlsDictionary, UrlsAgg, 'url')

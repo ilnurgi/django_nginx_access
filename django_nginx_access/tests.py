@@ -15,10 +15,13 @@ from django_nginx_access.models import (
 )
 from django_nginx_access.management.commands.parse_nginx_access import Command
 
-today = date.today()
+today = date(2019, 10, 1)
 today_str = today.strftime('%d/%b/%Y')
 
-prev_month = today - timedelta(days=32)
+tomorrow = today - timedelta(days=1)
+tomorrow_str = tomorrow.strftime('%d/%b/%Y')
+
+prev_month = date(2019, 9, 9)
 prev_month_str = prev_month.strftime('%d/%b/%Y')
 
 prev_month_first_day = date(prev_month.year, prev_month.month, 1)
@@ -61,9 +64,17 @@ file_contents = {
             '46.229.168.144 |_| - |_| {}:00:33:07 +0300 |_| 0.306 |_| ilnurgi.ru |_| '
             'GET /url6 HTTP/1.1 |_| 200 |_| 3295 |_| http://google.ru |_| 306 |_| 3041 |_| '
             'Mozilla/5.0'.format(prev_month_str),
-            # реферер не должен попасть в агрегацию
+            # должен попасть в агрегацию, тестируем реф
             '46.229.168.144 |_| - |_| {}:00:33:07 +0300 |_| 0.306 |_| ilnurgi.ru |_| '
-            'GET /url6 HTTP/1.1 |_| 200 |_| 3295 |_| http://ilnurgi.ru |_| 306 |_| 3041 |_| '
+            'GET /url6 HTTP/1.1 |_| 200 |_| 3295 |_| http://ilnurgi.ru/admin/ |_| 306 |_| 3041 |_| '
+            'Mozilla/5.0'.format(prev_month_str),
+            # должен попасть в агрегацию, тестируем реф
+            '46.229.168.144 |_| - |_| {}:00:33:07 +0300 |_| 0.306 |_| ilnurgi.ru |_| '
+            'GET /url6 HTTP/1.1 |_| 200 |_| 3295 |_|   |_| 306 |_| 3041 |_| '
+            'Mozilla/5.0'.format(prev_month_str),
+            # должен попасть в агрегацию, тестируем реф
+            '46.229.168.144 |_| - |_| {}:00:33:07 +0300 |_| 0.306 |_| ilnurgi.ru |_| '
+            'GET /url6 HTTP/1.1 |_| 200 |_| 3295 |_| - |_| 306 |_| 3041 |_| '
             'Mozilla/5.0'.format(prev_month_str),
         ))
     ),
@@ -77,13 +88,14 @@ file_contents = {
 
 class NginxAccessParseTestCase(TestCase):
 
+    @mock.patch('django_nginx_access.management.commands.parse_nginx_access.date')
     @mock.patch('django_nginx_access.management.commands.parse_nginx_access.os.path.exists')
     @mock.patch('django_nginx_access.management.commands.parse_nginx_access.os.listdir')
     @mock.patch('django_nginx_access.management.commands.parse_nginx_access.os.system')
     @mock.patch('django_nginx_access.management.commands.parse_nginx_access.open')
     @mock.patch('django_nginx_access.management.commands.parse_nginx_access.gzip.open')
     @mock.patch('django_nginx_access.management.commands.parse_nginx_access.shutil.move')
-    def test(self, m_shutil_move, m_gzip_open, m_open, m_os_system, m_os_listdir, m_os_path_exists):
+    def test(self, m_shutil_move, m_gzip_open, m_open, m_os_system, m_os_listdir, m_os_path_exists, m_date):
         def open_wrap(file_path):
             file_name = os.path.basename(file_path)
             print(file_name)
@@ -93,6 +105,7 @@ class NginxAccessParseTestCase(TestCase):
         m_gzip_open.side_effect = open_wrap
         m_os_listdir.return_value = file_contents.keys()
         m_os_path_exists.return_value = True
+        m_date.today.return_value = today
 
         for model in (
                 LogItem, UrlsDictionary, UrlsAgg, UserAgentsDictionary, UserAgentsAgg, RefererDictionary, RefererAgg
@@ -114,7 +127,7 @@ class NginxAccessParseTestCase(TestCase):
         urls_agg_ex = [
             {
                 'agg_month': prev_month_first_day,
-                'amount': 3,
+                'amount': 5,
                 'url_id': url_6.id
             }
         ]
@@ -141,7 +154,7 @@ class NginxAccessParseTestCase(TestCase):
         uas_agg_ex = [
             {
                 'agg_month': prev_month_first_day,
-                'amount': 3,
+                'amount': 5,
                 'user_agent_id': ua.id
             }
         ]
