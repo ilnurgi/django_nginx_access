@@ -43,11 +43,67 @@ class UrlsTopFilter(TopFilter):
         )
 
 
+class ExcludeDocsFilter(admin.SimpleListFilter):
+    """
+    исключаем из реестра црлы по докам
+    """
+    title = 'exclude'
+    parameter_name = 'ed'
+
+    ALL = 'all'
+    BLOG = 'blog'
+    DOCS = 'docs'
+
+    def lookups(self, request, model_admin):
+        """
+        возвращаем варианты для клиента
+        :param request:
+        :param model_admin:
+        :return:
+        """
+        return (
+            (self.ALL, 'all'),
+            (self.BLOG, 'blog'),
+            (self.DOCS, 'docs'),
+        )
+
+    def queryset(self, request, queryset):
+        """
+        фильтруем элементы списка
+        :param request:
+        :param queryset:
+        :return:
+        """
+        value = self.value()
+
+        if value == self.ALL:
+            queryset = (
+                queryset
+                    .exclude(url__url__startswith='/docs')
+                    .exclude(url__url__startswith='/blog')
+            )
+        elif value == self.BLOG:
+            queryset = (
+                queryset
+                    .exclude(url__url__startswith='/blog')
+            )
+        elif value == self.DOCS:
+            queryset = (
+                queryset
+                    .exclude(url__url__startswith='/docs')
+            )
+
+        return queryset
+
+
 class UrlsAggAdmin(admin.ModelAdmin):
     """
     админка агрегации урлов
     """
     list_display = ('agg_month', 'amount', 'url')
+    list_filter = [
+        ExcludeDocsFilter
+    ]
 
 
 class UrlsDictionaryAdmin(admin.ModelAdmin):
