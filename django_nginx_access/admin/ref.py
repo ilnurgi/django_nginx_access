@@ -54,11 +54,12 @@ class RefererDictionaryAdmin(admin.ModelAdmin):
     админка агрегации откуда
     """
     search_fields = ('referer', )
-    list_display = ('referer', 'count_views')
+    list_display = ('referer', 'published', 'count_views')
     list_filter = [
         RefsSeeCountersFilter,
         RefsTopFilter,
     ]
+    list_editable = ('published',)
 
     def count_views(self, inst):
         return inst.count_views

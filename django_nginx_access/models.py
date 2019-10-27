@@ -137,6 +137,7 @@ class RefererDictionary(models.Model):
     """
 
     referer = models.URLField(unique=True)
+    published = models.BooleanField(default=False)
 
     def __str__(self):
         """

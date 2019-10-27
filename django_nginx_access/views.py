@@ -331,6 +331,8 @@ from (
     ) "label"
   from
     "django_nginx_access_refereragg"
+  where
+    referer_id in (select "id" from "django_nginx_access_refererdictionary" where "published" is true)
   group by
     "referer_id"
 ) t
@@ -371,6 +373,8 @@ from (
         , date_trunc('day', "time_local")::date "agg_day"
       from 
         "django_nginx_access_logitem"
+      where
+        "http_referer" in (select "referer" from "django_nginx_access_refererdictionary" where "published" is true)
     ) t
     group by 
       "label", "agg_day"
